@@ -47,7 +47,7 @@ int main (int argc, char *argv[]) {
 		return 0;
 	}
 
-	int N = atoi(argv[1]);
+	int N = atoi(argv[1]), alloc_num;
 	const char *inName = argv[2];
 	const char *outName = argv[3];
 
@@ -55,7 +55,37 @@ int main (int argc, char *argv[]) {
 
 	// Part 1: Read file
 	/* Note: You should deal with cases where (N < size) in Homework 1 */
-	if (rank == ROOT) {
+	int rc;
+	MPI_File fp;
+	rc = MPI_File_open(MPI_COMM_WORLD, inName, MPI_MODE_RDONLY, MPI_INFO_NULL, &fp); 
+	if(rc != MPI_SUCCESS){
+		MPI_Abort(MPI_COMM_WORLD, rc);
+	}
+	MPI_Offset total_number_of_bytes;
+	MPI_File_get_size(fp, &total_number_of_bytes);
+	if(total_number_of_bytes/sizeof(int)<N){
+		puts("N is bigger than testcase in input file, read to the end");
+		N = total_number_of_bytes/sizeof(int);
+	}
+	// sheu if N < # of processes?
+	if(N < size){
+		puts("too less input, use insertion sort by 1 process");
+		if(rank != root)
+			MPI_Finalize();
+		else{
+			// sheu todo
+		}
+	}
+	else{
+		alloc_num = N / size;
+		if(N%size!=0){
+			//todo
+		}
+		
+		
+	}
+
+/*	if (rank == ROOT) {
 		struct stat st;
 		int fd = 0;
 		fd = open(argv[2],O_RDONLY);
@@ -72,6 +102,7 @@ int main (int argc, char *argv[]) {
 		close(fd);
 	}
 	MPI_Barrier(MPI_COMM_WORLD);
+*/
 /*		root_arr = malloc(N * sizeof(int));
 		FILE *f = fopen(inName, "rb"); // sheu may need change
 		fread(root_arr, sizeof(int), N, f);
