@@ -1,0 +1,57 @@
+#!/bin/bash
+
+usage() {
+	echo -e "--------------------------------------------"
+	echo -e "\E[0;94mDescription:\E[0;32m Show contents of a binary file as 32-bit signed integers"
+	echo -e "\E[0;94mUsage:\E[0;1m    $0 in_file [start] [count]"
+	echo -e "\E[0;94mExamples:\E[0;1m $0 sorted1"
+	echo -e "          $0 sorted7 20 10\E[0m"
+}
+
+binfile=$1
+s=$2
+c=$3
+
+if [ $# -ne 1 ] && [ $# -ne 3 ]; then
+	usage
+	exit -1
+fi
+
+if [ $# -eq 3 ] && [[ ! $s$c =~ ^[0-9]+$ ]]; then
+	echo -e "\E[0;32;40m'start' and 'count' must be non-negative integers\E[0m"
+	usage
+	exit -1
+fi
+
+if [ $binfile = "-h" ] || [ $binfile = "--help" ]; then
+	usage
+	exit 0
+fi
+
+if [ ! -f $binfile ]; then
+	echo cannot read \'$binfile\'
+	exit -1
+fi
+
+bb=$(echo `wc -c $binfile` | awk '{print $1}')
+b=$((bb >> 2))
+
+if [ $# -eq 1 ]; then
+	s=0
+	c=$b
+fi
+e=$((s+c-1))
+echo "This file has $b number(s), ranging from 0 to $((b-1))"
+
+if [ $e -ge $b ]; then
+	echo But you are requesting numbers from $s to $e
+	echo Index out of bounds
+	exit -1
+fi
+
+echo List numbers from $s to $e:
+
+ss=$((s << 2))
+cc=$((c << 2))
+
+od -v -An -td4 -w4 -j$ss -N$cc $binfile
