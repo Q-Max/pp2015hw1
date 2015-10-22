@@ -11,7 +11,7 @@
 #include <fcntl.h>
 
 #define ROOT 0
-#define is_qs 100
+#define IS_QS 100
 inline void printall(int *array, int length){	
 	int i;
 	for(i=0;i<length;i++){
@@ -91,6 +91,7 @@ int main (int argc, char *argv[]) {
 			insertionsort(array,N);
 			printall(array,N);
 			MPI_Finalize();
+			exit(0);
 		}
 	}
 	else{
@@ -105,7 +106,27 @@ int main (int argc, char *argv[]) {
 			printf("rank: %2d io time: %lf\n",rank,finish-start);
 		}
 		else{
-			alloc_num+=1;
+			// last process need deal with more inputs
+			if(rank==size-1){
+				MPI_File_seek(fp, (MPI_Offset)rank*alloc_num*sizeof(int), MPI_SEEK_SET);
+				alloc_num = N-rank*alloc_num;
+				array = (int*)malloc(sizeof(int)*alloc_num);
+				start = MPI_Wtime();
+				MPI_File_read(fp, array, alloc_num, MPI_INT, &status);
+				finish = MPI_Wtime();
+				printf("rank: %2d io time: %lf\n",rank,finish-start);
+
+			}
+			else{
+				MPI_File_seek(fp, (MPI_Offset)rank*alloc_num*sizeof(int), MPI_SEEK_SET);
+				array = (int*)malloc(sizeof(int)*alloc_num);
+				start = MPI_Wtime();
+				MPI_File_read(fp, array, alloc_num, MPI_INT, &status);
+				finish = MPI_Wtime();
+				printf("rank: %2d io time: %lf\n",rank,finish-start);
+
+			}
+			/*alloc_num+=1;
 			if(rank*alloc_num>=N){
 				printf("rank: %2d others take my job, exit\n",rank);
 				MPI_Finalize();
@@ -125,7 +146,7 @@ int main (int argc, char *argv[]) {
 				MPI_File_read(fp, array, alloc_num, MPI_INT, &status);
 				finish = MPI_Wtime();
 				printf("rank: %2d io time: %lf\n",rank,finish-start);
-			}
+			}*/
 			//test
 			insertionsort(array,alloc_num);
 			printall(array,alloc_num);
@@ -135,8 +156,47 @@ int main (int argc, char *argv[]) {
 		
 		
 	}
-	MPI_Finalize();
-	exit(0);
+	// sheu
+	// todo
+	// sort and communicate with other
+    //--------------------------------------------------------------------------------
+	int time=0,sorted=0,quicksort=0;
+	if(alloc_num>IS_QS)
+		quicksort=1;
+	while(!sorted){
+		if(time==0){
+			if(quicksort)
+				qsort_int(array,alloc_num);
+			else
+				insertionsort(array,alloc_num);
+			if(rank%2){
+				if(rank)
+					;
+			}
+			time=1;
+		}
+		else{
+
+			time=0;
+		}
+	}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 /*	if (rank == ROOT) {
 		struct stat st;
