@@ -148,10 +148,10 @@ int main (int argc, char *argv[]) {
 				printf("rank: %2d io time: %lf\n",rank,finish-start);
 			}*/
 			//test
-			insertionsort(array,alloc_num);
+			/*iinsertionsort(array,alloc_num);
 			printall(array,alloc_num);
 			MPI_Finalize();
-			exit(0);
+			exit(0);*/
 		}
 		
 		
@@ -161,27 +161,183 @@ int main (int argc, char *argv[]) {
 	// sort and communicate with other
     //--------------------------------------------------------------------------------
 	int time=0,sorted=0,quicksort=0;
+	int *temp_array = malloc(sizeof(int)*(alloc_num+size));
+	int *sorted_array = malloc(sizeof(int)*alloc_num);
+	int *tmp_ptr;
+
+	int nei_alloc;
 	if(alloc_num>IS_QS)
 		quicksort=1;
+	if(quicksort)
+		qsort_int(array,alloc_num);
+	else
+		insertionsort(array,alloc_num);
 	while(!sorted){
+		sorted = 1;
 		if(time==0){
-			if(quicksort)
-				qsort_int(array,alloc_num);
-			else
-				insertionsort(array,alloc_num);
+			// from odd rank send to even rank
 			if(rank%2){
-				if(rank)
-					;
+				// odd rank
+				if(rank==size-1){
+					// do nothing
+				}
+				else{
+					MPI_Send(&alloc_num,1,MPI_INT,rank+1,0,MPI_COMM_WORLD);
+					MPI_Send(array,alloc_num,MPI_INT,rank+1,0,MPI_COMM_WORLD);
+					MPI_Recv(&nei_alloc,1,MPI_INT,rank-1,MPI_ANY_TAG,MPI_COMM_WORLD,&status);
+					MPI_Recv(temp_array,nei_alloc,MPI_INT,rank-1,MPI_ANY_TAG,MPI_COMM_WORLD,&status);
+					
+				}
 			}
+			else{
+				if(rank==ROOT){
+					// do nothing
+				}
+				else{
+					MPI_Recv(&nei_alloc,1,MPI_INT,rank-1,MPI_ANY_TAG,MPI_COMM_WORLD,&status);
+					MPI_Recv(temp_array,nei_alloc,MPI_INT,rank-1,MPI_ANY_TAG,MPI_COMM_WORLD,&status);
+					MPI_Send(&alloc_num,1,MPI_INT,rank-1,0,MPI_COMM_WORLD);
+					MPI_Send(array,alloc_num,MPI_INT,rank-1,0,MPI_COMM_WORLD);
+				}
+			}
+			// merge
+			// odd has smaller part
+			if(rank%2){
+				for(int i=0,j=0,k=0;i<alloc_num;i++){
+					if(j==nei_alloc){
+						sorted_array[i]=array[k];
+						k++;
+						continue;
+					}
+					else if(k==alloc_num){
+						sorted_array[i]=temp_array[j];
+						j++;
+						continue;
+					}
+					if(temp_array[j]<array[k]){
+						sorted_array[i]=temp_array[j];
+						j++;
+					}
+					else{
+						sorted_array[i]=array[k];
+						k++;
+					}
+				}
+			}
+			else{
+			// even has larger part
+				for(int i=alloc_num-1,j=nei_alloc-1,k=alloc_num-1;i>=0;i--){
+					if(j==-1){
+						sorted_array[i]=array[k];
+						k--;
+						continue;
+					}
+					else if(k==-1){
+						sorted_array[i]=temp_array[j];
+						j--;
+						continue;
+					}
+					if(temp_array[j]>array[k]){
+						sorted_array[i]=temp_array[j];
+						j--;
+					}
+					else{
+						sorted_array[i]=array[k];
+						k--;
+					}
+				}
+			}
+			tmp_ptr=array;
+			array=sorted_array;
+			sorted_array=tmp_ptr;
+			if(!memcmp(array,sorted_array,sizeof(int)*alloc_num))
+				sorted=0;
 			time=1;
 		}
 		else{
-
+			// from even rank send to odd rank
+			if(!rank%2){
+				// even rank
+				if(rank==size-1){
+					// do nothing
+				}
+				else{
+					MPI_Send(&alloc_num,1,MPI_INT,rank+1,0,MPI_COMM_WORLD);
+					MPI_Send(array,alloc_num,MPI_INT,rank+1,0,MPI_COMM_WORLD);
+					MPI_Recv(&nei_alloc,1,MPI_INT,rank-1,MPI_ANY_TAG,MPI_COMM_WORLD,&status);
+					MPI_Recv(temp_array,nei_alloc,MPI_INT,rank-1,MPI_ANY_TAG,MPI_COMM_WORLD,&status);
+					
+				}
+			}
+			else{
+				if(rank==ROOT);
+				else{
+					MPI_Recv(&nei_alloc,1,MPI_INT,rank-1,MPI_ANY_TAG,MPI_COMM_WORLD,&status);
+					MPI_Recv(temp_array,nei_alloc,MPI_INT,rank-1,MPI_ANY_TAG,MPI_COMM_WORLD,&status);
+					MPI_Send(&alloc_num,1,MPI_INT,rank-1,0,MPI_COMM_WORLD);
+					MPI_Send(array,alloc_num,MPI_INT,rank-1,0,MPI_COMM_WORLD);
+				}
+			}
+			// merge
+			// even has smaller part
+			if(!rank%2){
+				for(int i=0,j=0,k=0;i<alloc_num;i++){
+					if(j==nei_alloc){
+						sorted_array[i]=array[k];
+						k++;
+						continue;
+					}
+					else if(k==alloc_num){
+						sorted_array[i]=temp_array[j];
+						j++;
+						continue;
+					}
+					if(temp_array[j]<array[k]){
+						sorted_array[i]=temp_array[j];
+						j++;
+					}
+					else{
+						sorted_array[i]=array[k];
+						k++;
+					}
+				}
+			}
+			else{
+			// odd has larger part
+				for(int i=alloc_num-1,j=nei_alloc-1,k=alloc_num-1;i>=0;i--){
+					if(j==-1){
+						sorted_array[i]=array[k];
+						k--;
+						continue;
+					}
+					else if(k==-1){
+						sorted_array[i]=temp_array[j];
+						j--;
+						continue;
+					}
+					if(temp_array[j]>array[k]){
+						sorted_array[i]=temp_array[j];
+						j--;
+					}
+					else{
+						sorted_array[i]=array[k];
+						k--;
+					}
+				}
+			}
+			tmp_ptr=array;
+			array=sorted_array;
+			sorted_array=tmp_ptr;
+			if(!memcmp(array,sorted_array,sizeof(int)*alloc_num))
+				sorted=0;
 			time=0;
 		}
 	}
-
-
+	MPI_Barrier(MPI_COMM_WORLD);
+	
+	//
+	MPI_Finalize();
+	exit(0);
 
 
 
