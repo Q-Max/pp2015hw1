@@ -11,6 +11,14 @@
 #include <fcntl.h>
 
 #define ROOT 0
+#define is_qs 100
+inline void printall(int *array, int length){	
+	int i;
+	for(i=0;i<length;i++){
+		printf("%d ",array[i]);
+	}
+	putchar('\n');
+}
 int cmp(const void* a, const void* b){
 	if(*(int*)a > *(int*)b)return 1;
 	else if(*(int*)a < *(int*)b)return -1;
@@ -36,7 +44,7 @@ int main (int argc, char *argv[]) {
 	MPI_Init(&argc, &argv);
 	MPI_Comm_size(MPI_COMM_WORLD, &size);
 	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-
+	MPI_Status status;
 	if (argc < 4) {
 		if (rank == ROOT) {
 			fprintf(stderr, "Insufficient args\n");
@@ -50,7 +58,7 @@ int main (int argc, char *argv[]) {
 	int N = atoi(argv[1]), alloc_num;
 	const char *inName = argv[2];
 	const char *outName = argv[3];
-
+	double start, finish;
 	int *root_arr; // for root process (which rank == 0) only
 
 	// Part 1: Read file
@@ -68,22 +76,67 @@ int main (int argc, char *argv[]) {
 		N = total_number_of_bytes/sizeof(int);
 	}
 	// sheu if N < # of processes?
+	int *array;
 	if(N < size){
-		puts("too less input, use insertion sort by 1 process");
-		if(rank != root)
+		if(rank != ROOT){
 			MPI_Finalize();
+			exit(0);
+		}
 		else{
 			// sheu todo
+			puts("too less input, use insertion sort by ROOT process");
+			array = (int*)malloc(sizeof(int)*N);
+			MPI_Status status;
+			MPI_File_read(fp, array, N, MPI_INT, &status);
+			insertionsort(array,N);
+			printall(array,N);
+			MPI_Finalize();
 		}
 	}
 	else{
 		alloc_num = N / size;
-		if(N%size!=0){
+		if(N%size==0){
 			//todo
+			MPI_File_seek(fp, (MPI_Offset)rank*alloc_num, MPI_SEEK_SET);
+			array = (int*)malloc(sizeof(int)*alloc_num);
+			start = MPI_Wtime();
+			MPI_File_read(fp, array, alloc_num, MPI_INT, &status);
+			finish = MPI_Wtime();
+			printf("rank: %2d io time: %lf\n",rank,finish-start);
+		}
+		else{
+			alloc_num+=1;
+			if(rank*alloc_num>=N){
+				printf("rank: %2d others take my job, exit\n",rank);
+				MPI_Finalize();
+				exit(0);
+			}
+			MPI_File_seek(fp, (MPI_Offset)rank*alloc_num*sizeof(int), MPI_SEEK_SET);
+			array = (int*)malloc(sizeof(int)*alloc_num);
+			if(rank*alloc_num+alloc_num>N){
+				alloc_num = N-rank*alloc_num;
+				start = MPI_Wtime();
+				MPI_File_read(fp, array, alloc_num, MPI_INT, &status);
+				finish = MPI_Wtime();
+				printf("rank: %2d io time: %lf\n",rank,finish-start);
+			}
+			else{
+				start = MPI_Wtime();
+				MPI_File_read(fp, array, alloc_num, MPI_INT, &status);
+				finish = MPI_Wtime();
+				printf("rank: %2d io time: %lf\n",rank,finish-start);
+			}
+			//test
+			insertionsort(array,alloc_num);
+			printall(array,alloc_num);
+			MPI_Finalize();
+			exit(0);
 		}
 		
 		
 	}
+	MPI_Finalize();
+	exit(0);
 
 /*	if (rank == ROOT) {
 		struct stat st;
