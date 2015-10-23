@@ -9,7 +9,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 #include <fcntl.h>
-
+#include <string.h> // memcmp
 #define ROOT 0
 #define IS_QS 100
 inline void printall(int *array, int length){	
@@ -24,7 +24,7 @@ int cmp(const void* a, const void* b){
 	else if(*(int*)a < *(int*)b)return -1;
 	return 0; 
 }
-void insertionsort(int* array, int length)
+inline void insertionsort(int* array, int length)
 {
 	int n, j, i;
 	for (i = 1; i < length; ++i){
@@ -35,7 +35,7 @@ void insertionsort(int* array, int length)
 	}
 }
 
-void qsort_int(int* array, int length){
+inline void qsort_int(int* array, int length){
 	qsort((void*)array, length, sizeof(int), cmp);
 }
 int main (int argc, char *argv[]) {
@@ -164,7 +164,7 @@ int main (int argc, char *argv[]) {
 	int *temp_array = malloc(sizeof(int)*(alloc_num+size));
 	int *sorted_array = malloc(sizeof(int)*alloc_num);
 	int *tmp_ptr;
-
+	int i,j,k;
 	int nei_alloc;
 	if(alloc_num>IS_QS)
 		quicksort=1;
@@ -174,6 +174,7 @@ int main (int argc, char *argv[]) {
 		insertionsort(array,alloc_num);
 	while(!sorted){
 		sorted = 1;
+		printall(array,alloc_num);
 		if(time==0){
 			// from odd rank send to even rank
 			if(rank%2){
@@ -184,8 +185,8 @@ int main (int argc, char *argv[]) {
 				else{
 					MPI_Send(&alloc_num,1,MPI_INT,rank+1,0,MPI_COMM_WORLD);
 					MPI_Send(array,alloc_num,MPI_INT,rank+1,0,MPI_COMM_WORLD);
-					MPI_Recv(&nei_alloc,1,MPI_INT,rank-1,MPI_ANY_TAG,MPI_COMM_WORLD,&status);
-					MPI_Recv(temp_array,nei_alloc,MPI_INT,rank-1,MPI_ANY_TAG,MPI_COMM_WORLD,&status);
+					MPI_Recv(&nei_alloc,1,MPI_INT,rank+1,MPI_ANY_TAG,MPI_COMM_WORLD,&status);
+					MPI_Recv(temp_array,nei_alloc,MPI_INT,rank+1,MPI_ANY_TAG,MPI_COMM_WORLD,&status);
 					
 				}
 			}
@@ -203,60 +204,66 @@ int main (int argc, char *argv[]) {
 			// merge
 			// odd has smaller part
 			if(rank%2){
-				for(int i=0,j=0,k=0;i<alloc_num;i++){
-					if(j==nei_alloc){
-						sorted_array[i]=array[k];
-						k++;
-						continue;
-					}
-					else if(k==alloc_num){
-						sorted_array[i]=temp_array[j];
-						j++;
-						continue;
-					}
-					if(temp_array[j]<array[k]){
-						sorted_array[i]=temp_array[j];
-						j++;
-					}
-					else{
-						sorted_array[i]=array[k];
-						k++;
+				if(rank!=size-1){
+					for(i=0,j=0,k=0;i<alloc_num;i++){
+						if(j==nei_alloc){
+							sorted_array[i]=array[k];
+							k++;
+							continue;
+						}
+						else if(k==alloc_num){
+							sorted_array[i]=temp_array[j];
+							j++;
+							continue;
+						}
+						if(temp_array[j]<array[k]){
+							sorted_array[i]=temp_array[j];
+							j++;
+						}
+						else{
+							sorted_array[i]=array[k];
+							k++;
+						}
 					}
 				}
 			}
 			else{
 			// even has larger part
-				for(int i=alloc_num-1,j=nei_alloc-1,k=alloc_num-1;i>=0;i--){
-					if(j==-1){
-						sorted_array[i]=array[k];
-						k--;
-						continue;
-					}
-					else if(k==-1){
-						sorted_array[i]=temp_array[j];
-						j--;
-						continue;
-					}
-					if(temp_array[j]>array[k]){
-						sorted_array[i]=temp_array[j];
-						j--;
-					}
-					else{
-						sorted_array[i]=array[k];
-						k--;
+				if(rank!=ROOT){
+					for(i=alloc_num-1,j=nei_alloc-1,k=alloc_num-1;i>=0;i--){
+						if(j==-1){
+							sorted_array[i]=array[k];
+							k--;
+							continue;
+						}
+						else if(k==-1){
+							sorted_array[i]=temp_array[j];
+							j--;
+							continue;
+						}
+						if(temp_array[j]>array[k]){
+							sorted_array[i]=temp_array[j];
+							j--;
+						}
+						else{
+							sorted_array[i]=array[k];
+							k--;
+						}
 					}
 				}
 			}
-			tmp_ptr=array;
-			array=sorted_array;
-			sorted_array=tmp_ptr;
-			if(!memcmp(array,sorted_array,sizeof(int)*alloc_num))
+			if(rank!=ROOT&&(rank!=size-1||rank%2!=1)){
+				tmp_ptr=array;
+				array=sorted_array;
+				sorted_array=tmp_ptr;
+			}
+			if(0!=memcmp((const void*)array,(const void*)sorted_array,(size_t)sizeof(int)*alloc_num))
 				sorted=0;
 			time=1;
 		}
-		else{
+		if(time==1){
 			// from even rank send to odd rank
-			if(!rank%2){
+			if(!(rank%2)){
 				// even rank
 				if(rank==size-1){
 					// do nothing
@@ -264,14 +271,13 @@ int main (int argc, char *argv[]) {
 				else{
 					MPI_Send(&alloc_num,1,MPI_INT,rank+1,0,MPI_COMM_WORLD);
 					MPI_Send(array,alloc_num,MPI_INT,rank+1,0,MPI_COMM_WORLD);
-					MPI_Recv(&nei_alloc,1,MPI_INT,rank-1,MPI_ANY_TAG,MPI_COMM_WORLD,&status);
-					MPI_Recv(temp_array,nei_alloc,MPI_INT,rank-1,MPI_ANY_TAG,MPI_COMM_WORLD,&status);
+					MPI_Recv(&nei_alloc,1,MPI_INT,rank+1,MPI_ANY_TAG,MPI_COMM_WORLD,&status);
+					MPI_Recv(temp_array,nei_alloc,MPI_INT,rank+1,MPI_ANY_TAG,MPI_COMM_WORLD,&status);
 					
 				}
 			}
 			else{
-				if(rank==ROOT);
-				else{
+				{
 					MPI_Recv(&nei_alloc,1,MPI_INT,rank-1,MPI_ANY_TAG,MPI_COMM_WORLD,&status);
 					MPI_Recv(temp_array,nei_alloc,MPI_INT,rank-1,MPI_ANY_TAG,MPI_COMM_WORLD,&status);
 					MPI_Send(&alloc_num,1,MPI_INT,rank-1,0,MPI_COMM_WORLD);
@@ -279,32 +285,35 @@ int main (int argc, char *argv[]) {
 				}
 			}
 			// merge
+//			printf("rank: %2d array",rank)
 			// even has smaller part
-			if(!rank%2){
-				for(int i=0,j=0,k=0;i<alloc_num;i++){
-					if(j==nei_alloc){
-						sorted_array[i]=array[k];
-						k++;
-						continue;
-					}
-					else if(k==alloc_num){
-						sorted_array[i]=temp_array[j];
-						j++;
-						continue;
-					}
-					if(temp_array[j]<array[k]){
-						sorted_array[i]=temp_array[j];
-						j++;
-					}
-					else{
-						sorted_array[i]=array[k];
-						k++;
+			if(!(rank%2)){
+				if(rank!=size-1){
+					for(i=0,j=0,k=0;i<alloc_num;i++){
+						if(j==nei_alloc){
+							sorted_array[i]=array[k];
+							k++;
+							continue;
+						}
+						else if(k==alloc_num){
+							sorted_array[i]=temp_array[j];
+							j++;
+							continue;
+						}
+						if(temp_array[j]<array[k]){
+							sorted_array[i]=temp_array[j];
+							j++;
+						}
+						else{
+							sorted_array[i]=array[k];
+							k++;
+						}
 					}
 				}
 			}
 			else{
 			// odd has larger part
-				for(int i=alloc_num-1,j=nei_alloc-1,k=alloc_num-1;i>=0;i--){
+				for(i=alloc_num-1,j=nei_alloc-1,k=alloc_num-1;i>=0;i--){
 					if(j==-1){
 						sorted_array[i]=array[k];
 						k--;
@@ -325,14 +334,18 @@ int main (int argc, char *argv[]) {
 					}
 				}
 			}
-			tmp_ptr=array;
-			array=sorted_array;
-			sorted_array=tmp_ptr;
-			if(!memcmp(array,sorted_array,sizeof(int)*alloc_num))
+			if(rank!=size-1||rank%2!=1){
+				tmp_ptr=array;
+				array=sorted_array;
+				sorted_array=tmp_ptr;
+			}
+			if(0!=memcmp((const void*)array,(const void*)sorted_array,(size_t)sizeof(int)*alloc_num))
 				sorted=0;
+
 			time=0;
 		}
 	}
+	printf("rank: %2d finish\n",rank);
 	MPI_Barrier(MPI_COMM_WORLD);
 	
 	//
@@ -393,7 +406,7 @@ int main (int argc, char *argv[]) {
 
 	// Part 3: Calculate the sum of local_arr
 	int sum = 0;
-	int i;
+	//int i;
 	for (i = 0; i < num_per_node; i++) {
 		sum += local_arr[i];
 	}
