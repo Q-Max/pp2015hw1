@@ -3,7 +3,16 @@
 #include <sys/stat.h>
 #include <unistd.h>
 #include <fcntl.h>
+/*inline void printall(int *array, int length);
+inline void printall(int *array, int length){	
+	int i;
+	for(i=0;i<length;i++){
+		printf("%d ",array[i]);
+	}
+	putchar('\n');
+}*/
 int cmp(const void* a, const void* b);
+
 int main(int argc, char** argv){
 
   if(argc!=4)
@@ -31,10 +40,11 @@ int main(int argc, char** argv){
   int numbers[numberToRead];
   puts("GG");
   fread(numbers,sizeof(int),numberToRead,fp);
+  //printall(numbers,numberToRead);
   qsort((void*)numbers,numberToRead,sizeof(int),cmp);
   for(int i=0;i<numberToRead;i++)
-    printf("%d\n",numbers[i]);
-
+    printf("%d ",numbers[i]);
+  putchar('\n');
   return 0;
 }
 
