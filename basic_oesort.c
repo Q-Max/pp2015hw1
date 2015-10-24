@@ -72,7 +72,7 @@ int main (int argc, char *argv[]) {
 	if (argc < 4) {
 		if (rank == ROOT) {
 			fprintf(stderr, "Insufficient args\n");
-			fprintf(stderr, "Usage: %s N input_file", argv[0]);
+			fprintf(stderr, "Usage: %s N input_file output_file", argv[0]);
 		}
 		MPI_Barrier(MPI_COMM_WORLD);
 		MPI_Finalize();
@@ -87,7 +87,7 @@ int main (int argc, char *argv[]) {
   
 	// Part 1: Read file
 	/* Note: You should deal with cases where (N < size) in Homework 1 */
-	int rc,i,trend;
+	int rc, i, trend = NOTSORTED;
 	int *array;
 	MPI_File fp;
 	MPI_File fh;
@@ -116,6 +116,7 @@ int main (int argc, char *argv[]) {
 		MPI_File_read(fp, array, alloc_num, MPI_INT, &status);
 		finish = MPI_Wtime();
 		iotime = finish-start;
+		MPI_File_open(MPI_COMM_WORLD, outName, MPI_MODE_CREATE | MPI_MODE_RDWR, MPI_INFO_NULL, &fh);		
 		if(N>2){
 			if(array[0]-array[1]>0)
 				trend = -1;
@@ -123,46 +124,45 @@ int main (int argc, char *argv[]) {
 				trend = 0;
 			else
 				trend = 1;
+			for(i=2;i<alloc_num;i++){
+				if(array[i-1]-array[i]>0&&(trend==-1||trend==0)){
+					trend = -1;
+					continue;
+				}
+				else if(array[i-1]-array[i]==0&&trend==0)
+					continue;
+				else if(array[i-1]-array[i]<0&&(trend==1||trend==0)){
+					trend = 1;
+					continue;
+				}
+				else{
+					trend = NOTSORTED;
+					break;
+				}
+			}
+			if(trend==1||trend==0){
+				printf("sorted file\n");
+				MPI_Offset my_offset = 0;
+				start = MPI_Wtime();
+				MPI_File_write_at(fh, my_offset, array, alloc_num, MPI_INT, &status);
+				finish = MPI_Wtime();
+				iotime += finish - start;
+				printf("iotime/t:%8.5lf/ncommtime/t:%8.5lf\n",iotime,commtime);			
+			}
+			else if(trend==-1){
+				printf("descending sorted file");
+				root_ptr = (int*)malloc(sizeof(int)*alloc_num);
+				for(i=0;i<alloc_num;i++){
+					root_ptr[i] = array[alloc_num-i-i];
+				}
+				MPI_Offset my_offset = 0;
+				start = MPI_Wtime();
+				MPI_File_write_at(fh, my_offset, root_ptr, alloc_num, MPI_INT, &status);
+				finish = MPI_Wtime();
+				iotime += finish - start;
+				printf("iotime/t:%8.5lf/ncommtime/t:%8.5lf\n",iotime,commtime);
+			}
 		}		
-		for(i=2;i<alloc_num;i++){
-			if(array[i-1]-array[i]>0&&(trend==-1||trend==0)){
-				trend = -1;
-				continue;
-			}
-			else if(array[i-1]-array[i]==0&&trend==0)
-				continue;
-			else if(array[i-1]-array[i]<0&&(trend==1||trend==0)){
-				trend = 1;
-				continue;
-			}
-			else{
-				trend = NOTSORTED;
-				break;
-			}
-		}
-		MPI_File_open(MPI_COMM_WORLD, outName, MPI_MODE_CREATE | MPI_MODE_RDWR, MPI_INFO_NULL, &fh);
-		if(trend==1||trend==0){
-			printf("sorted file\n");
-			MPI_Offset my_offset = 0;
-			start = MPI_Wtime();
-			MPI_File_write_at(fh, my_offset, array, alloc_num, MPI_INT, &status);
-			finish = MPI_Wtime();
-			iotime += finish - start;
-			printf("iotime/t:%8.5lf/ncommtime/t:%8.5lf\n",iotime,commtime);			
-		}
-		else if(trend==-1){
-			printf("descending sorted file");
-			root_ptr = (int*)malloc(sizeof(int)*alloc_num);
-			for(i=0;i<alloc_num;i++){
-				root_ptr[i] = array[alloc_num-i-i];
-			}
-			MPI_Offset my_offset = 0;
-			start = MPI_Wtime();
-			MPI_File_write_at(fh, my_offset, root_ptr, alloc_num, MPI_INT, &status);
-			finish = MPI_Wtime();
-			iotime += finish - start;
-			printf("iotime/t:%8.5lf/ncommtime/t:%8.5lf\n",iotime,commtime);
-		}
 	}
 	MPI_Barrier(MPI_COMM_WORLD);
 	MPI_Bcast(&trend, 1, MPI_INT, ROOT, MPI_COMM_WORLD);
