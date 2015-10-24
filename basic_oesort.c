@@ -91,6 +91,7 @@ int main (int argc, char *argv[]) {
 	int *array;
 	MPI_File fp;
 	MPI_File fh;
+	MPI_Offset my_offset;
 	rc = MPI_File_open(MPI_COMM_WORLD, inName, MPI_MODE_RDONLY, MPI_INFO_NULL, &fp); 
 	if(rc != MPI_SUCCESS){
 		MPI_Abort(MPI_COMM_WORLD, rc);
@@ -98,7 +99,8 @@ int main (int argc, char *argv[]) {
 	MPI_Offset total_number_of_bytes;
 	MPI_File_get_size(fp, &total_number_of_bytes);
 	if(total_number_of_bytes/sizeof(int)<N){
-		puts("N is bigger than testcase in input file, read to the end");
+		if(rank==ROOT)
+			puts("N is bigger than testcase in input file, read to the end");
 		N = total_number_of_bytes/sizeof(int);
 	}
 	// sheu
@@ -118,36 +120,42 @@ int main (int argc, char *argv[]) {
 		iotime = finish-start;
 		MPI_File_open(MPI_COMM_WORLD, outName, MPI_MODE_CREATE | MPI_MODE_RDWR, MPI_INFO_NULL, &fh);		
 		if(N>=2){
-			if(array[0]-array[1]>0)
+			printall(array, alloc_num);
+			if(array[0]>array[1])
 				trend = -1;
-			else if(array[0]-array[1]==0)
+			else if(array[0]==array[1])
 				trend = 0;
 			else
 				trend = 1;
 			for(i=2;i<alloc_num;i++){
-				if(array[i-1]-array[i]>0&&(trend==-1||trend==0)){
+				if(array[i-1]>array[i]&&(trend==-1||trend==0)){
 					trend = -1;
+					puts("QQ");
 					continue;
 				}
-				else if(array[i-1]-array[i]==0&&trend==0)
+				else if(array[i-1]==array[i]&&trend==0)
 					continue;
-				else if(array[i-1]-array[i]<0&&(trend==1||trend==0)){
+				else if(array[i-1]<array[i]&&(trend==1||trend==0)){
 					trend = 1;
 					continue;
 				}
 				else{
 					trend = NOTSORTED;
+					puts("QQ");
+					
 					break;
 				}
 			}
+			printf("%d\n", trend);
 			if(trend==1||trend==0){
 				printf("sorted file\n");
-				MPI_Offset my_offset = 0;
+				my_offset = 0;
+				printall(array, alloc_num);
 				start = MPI_Wtime();
 				MPI_File_write_at(fh, my_offset, array, alloc_num, MPI_INT, &status);
 				finish = MPI_Wtime();
 				iotime += finish - start;
-				printf("iotime/t:%8.5lf/ncommtime/t:%8.5lf\n",iotime,commtime);			
+				printf("iotime   : %8.5lf\ncommtime : %8.5lf\n",iotime,commtime);			
 			}
 			else if(trend==-1){
 				printf("descending sorted file");
@@ -155,14 +163,25 @@ int main (int argc, char *argv[]) {
 				for(i=0;i<alloc_num;i++){
 					root_ptr[i] = array[alloc_num-i-i];
 				}
-				MPI_Offset my_offset = 0;
+				my_offset = 0;
 				start = MPI_Wtime();
 				MPI_File_write_at(fh, my_offset, root_ptr, alloc_num, MPI_INT, &status);
 				finish = MPI_Wtime();
 				iotime += finish - start;
-				printf("iotime/t:%8.5lf/ncommtime/t:%8.5lf\n",iotime,commtime);
+				printf("iotime   : %8.5lf\ncommtime : %8.5lf\n",iotime,commtime);
 			}
-		}		
+		}
+		else{
+			// N==1
+			trend = 0;
+			my_offset = 0;
+			start = MPI_Wtime();
+			MPI_File_write_at(fh, my_offset, array, alloc_num, MPI_INT, &status);
+			finish = MPI_Wtime();
+			iotime += finish - start;
+			printf("iotime/t:%8.5lf/ncommtime/t:%8.5lf\n",iotime,commtime);
+			
+		}
 	}
 	MPI_Barrier(MPI_COMM_WORLD);
 	MPI_Bcast(&trend, 1, MPI_INT, ROOT, MPI_COMM_WORLD);
@@ -193,7 +212,7 @@ int main (int argc, char *argv[]) {
 			//finish = MPI_Wtime();
 			//cputime = finish - start;
 			//printall(array, alloc_num);      
-			MPI_Offset my_offset = 0;
+			my_offset = 0;
 			start = MPI_Wtime();
 			MPI_File_write_at(fh, my_offset, array, alloc_num, MPI_INT, &status);
 			finish = MPI_Wtime();
@@ -220,7 +239,7 @@ int main (int argc, char *argv[]) {
 			//printf("rank: %2d io time: %lf\n", rank, iotime);
 			singleOESort(array, alloc_num);
 			//printall(array, alloc_num);
-			MPI_Offset my_offset = 0;
+			my_offset = 0;
 			//puts("qq");
 			start = MPI_Wtime();
 			MPI_File_write_at(fh, my_offset, array, alloc_num, MPI_INT, &status);
@@ -366,7 +385,7 @@ int main (int argc, char *argv[]) {
 		printall(root_ptr, N);
 	}
 #endif
-	MPI_Offset my_offset = rank*former_alloc_num*sizeof(int);
+	my_offset = rank*former_alloc_num*sizeof(int);
 	start = MPI_Wtime();
 	MPI_File_write_at(fh, my_offset, array, alloc_num, MPI_INT, &status);
 	finish = MPI_Wtime();
