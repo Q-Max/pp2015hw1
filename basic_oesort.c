@@ -118,6 +118,10 @@ int main (int argc, char *argv[]) {
 			printf("rank %2d io time: %lf\n", rank, finish - start);
 			singleOESort(array, alloc_num);
 			printall(array, alloc_num);
+      MPI_File fh;
+      MPI_File_open(MPI_COMM_WORLD, outName, MPI_MODE_CREATE | MPI_MODE_RDWR, MPI_INFO_NULL, &fh);
+      MPI_Offset my_offset = 0;
+      MPI_File_write_at(fh, 0, array, alloc_num, MPI_INT, &status);
 			MPI_Finalize();
 			exit(0);
 		}
@@ -138,6 +142,10 @@ int main (int argc, char *argv[]) {
 			printf("rank %2d io time: %lf\n", rank, finish - start);
 			singleOESort(array, alloc_num);
 			printall(array, alloc_num);
+      MPI_File fh;
+      MPI_File_open(MPI_COMM_WORLD, outName, MPI_MODE_CREATE | MPI_MODE_RDWR, MPI_INFO_NULL, &fh);
+      MPI_Offset my_offset = 0;
+      MPI_File_write_at(fh, 0, array, alloc_num, MPI_INT, &status);
 			MPI_Finalize();
 			exit(0);
 		}
