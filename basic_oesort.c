@@ -88,6 +88,7 @@ int main (int argc, char *argv[]) {
 	/* Note: You should deal with cases where (N < size) in Homework 1 */
 	int rc;
 	MPI_File fp;
+  MPI_File fh;
 	rc = MPI_File_open(MPI_COMM_WORLD, inName, MPI_MODE_RDONLY, MPI_INFO_NULL, &fp); 
 	if(rc != MPI_SUCCESS){
 		MPI_Abort(MPI_COMM_WORLD, rc);
@@ -105,6 +106,7 @@ int main (int argc, char *argv[]) {
 	if(size>N){
 		// if N < size, root take over
 		if(rank!=ROOT){
+      MPI_File_open(MPI_COMM_WORLD, outName, MPI_MODE_CREATE | MPI_MODE_RDWR, MPI_INFO_NULL, &fh);
 			MPI_Finalize();
 			exit(0);
 		}
@@ -117,11 +119,11 @@ int main (int argc, char *argv[]) {
 			finish = MPI_Wtime();
 			printf("rank %2d io time: %lf\n", rank, finish - start);
 			singleOESort(array, alloc_num);
-			printall(array, alloc_num);
-      MPI_File fh;
+			printall(array, alloc_num);      
       MPI_File_open(MPI_COMM_WORLD, outName, MPI_MODE_CREATE | MPI_MODE_RDWR, MPI_INFO_NULL, &fh);
       MPI_Offset my_offset = 0;
-      MPI_File_write_at(fh, 0, array, alloc_num, MPI_INT, &status);
+      puts("qq");
+      MPI_File_write_at(fh, my_offset, array, alloc_num, MPI_INT, &status);
 			MPI_Finalize();
 			exit(0);
 		}
@@ -129,6 +131,7 @@ int main (int argc, char *argv[]) {
 	else if(alloc_num==1){
 		// if N < 2*size, root take over
 		if(rank!=ROOT){
+      MPI_File_open(MPI_COMM_WORLD, outName, MPI_MODE_CREATE | MPI_MODE_RDWR, MPI_INFO_NULL, &fh);
 			MPI_Finalize();
 			exit(0);
 		}
@@ -142,10 +145,10 @@ int main (int argc, char *argv[]) {
 			printf("rank %2d io time: %lf\n", rank, finish - start);
 			singleOESort(array, alloc_num);
 			printall(array, alloc_num);
-      MPI_File fh;
       MPI_File_open(MPI_COMM_WORLD, outName, MPI_MODE_CREATE | MPI_MODE_RDWR, MPI_INFO_NULL, &fh);
       MPI_Offset my_offset = 0;
-      MPI_File_write_at(fh, 0, array, alloc_num, MPI_INT, &status);
+      puts("qq");
+      MPI_File_write_at(fh, my_offset, array, alloc_num, MPI_INT, &status);
 			MPI_Finalize();
 			exit(0);
 		}
@@ -271,7 +274,6 @@ int main (int argc, char *argv[]) {
 		printall(root_ptr, N);
 	}
 #endif
-  MPI_File fh;
   MPI_File_open(MPI_COMM_WORLD, outName, MPI_MODE_CREATE | MPI_MODE_RDWR, MPI_INFO_NULL, &fh);
   MPI_Offset my_offset = rank*former_alloc_num*sizeof(int);
   MPI_File_write_at(fh, my_offset, array, alloc_num, MPI_INT, &status);
