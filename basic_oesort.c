@@ -140,9 +140,9 @@ int main (int argc, char *argv[]) {
 				break;
 			}
 		}
+		MPI_File_open(MPI_COMM_WORLD, outName, MPI_MODE_CREATE | MPI_MODE_RDWR, MPI_INFO_NULL, &fh);
 		if(trend==1||trend==0){
 			printf("sorted file\n");
-			MPI_File_open(MPI_COMM_WORLD, outName, MPI_MODE_CREATE | MPI_MODE_RDWR, MPI_INFO_NULL, &fh);
 			MPI_Offset my_offset = 0;
 			start = MPI_Wtime();
 			MPI_File_write_at(fh, my_offset, array, alloc_num, MPI_INT, &status);
@@ -156,7 +156,6 @@ int main (int argc, char *argv[]) {
 			for(i=0;i<alloc_num;i++){
 				root_ptr[i] = array[alloc_num-i-i];
 			}
-			MPI_File_open(MPI_COMM_WORLD, outName, MPI_MODE_CREATE | MPI_MODE_RDWR, MPI_INFO_NULL, &fh);
 			MPI_Offset my_offset = 0;
 			start = MPI_Wtime();
 			MPI_File_write_at(fh, my_offset, root_ptr, alloc_num, MPI_INT, &status);
@@ -367,7 +366,6 @@ int main (int argc, char *argv[]) {
 		printall(root_ptr, N);
 	}
 #endif
-	MPI_File_open(MPI_COMM_WORLD, outName, MPI_MODE_CREATE | MPI_MODE_RDWR, MPI_INFO_NULL, &fh);
 	MPI_Offset my_offset = rank*former_alloc_num*sizeof(int);
 	start = MPI_Wtime();
 	MPI_File_write_at(fh, my_offset, array, alloc_num, MPI_INT, &status);
