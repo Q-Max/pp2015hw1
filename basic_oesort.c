@@ -132,7 +132,7 @@ int main (int argc, char *argv[]) {
 			else if(array[i-1]-array[i]==0&&trend==0)
 				continue;
 			else if(array[i-1]-array[i]<0&&(trend==1||trend==0)){
-				trend = 0;
+				trend = 1;
 				continue;
 			}
 			else{
@@ -362,7 +362,7 @@ int main (int argc, char *argv[]) {
 	MPI_Barrier(MPI_COMM_WORLD);
 	//printall(array,alloc_num);
 	MPI_Gatherv(array, alloc_num, MPI_INT, root_ptr, num_ptr, pos_ptr, MPI_INT, ROOT, MPI_COMM_WORLD);
-  if(rank==ROOT){
+	if(rank==ROOT){
 		printall(root_ptr, N);
 	}
 #endif
@@ -373,7 +373,7 @@ int main (int argc, char *argv[]) {
 	iotime += finish - start;
 	MPI_Allreduce(&iotime,&io_all,1,MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD);
 	MPI_Allreduce(&commtime,&comm_all,1,MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD);
-	if(rank=ROOT)
+	if(rank==ROOT)
 		printf("iotime/t:%8.5lf/ncommtime/t:%8.5lf\n",iotime,commtime);
 	MPI_Finalize();
 	return 0;
