@@ -117,7 +117,7 @@ int main (int argc, char *argv[]) {
 		finish = MPI_Wtime();
 		iotime = finish-start;
 		MPI_File_open(MPI_COMM_WORLD, outName, MPI_MODE_CREATE | MPI_MODE_RDWR, MPI_INFO_NULL, &fh);		
-		if(N>2){
+		if(N>=2){
 			if(array[0]-array[1]>0)
 				trend = -1;
 			else if(array[0]-array[1]==0)
