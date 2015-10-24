@@ -44,21 +44,21 @@ inline void qsort_int(int* array, int length){
 	qsort((void*)array, length, sizeof(int), cmp);
 }
 void singleOESort(int* array, int length){
-  int i,sorted=0;
-  while(!sorted){
-    sorted = 1;
-    for(i=0;i+1<length;i+=2){
-      if(array[i]>array[i+1]){
-        swap(&array[i],&array[i+1]);
-        sorted = 0;
-      }
-    }
-    for(i=1;i+1<length;i+=2){
-      if(array[i]>array[i+1]){
-        swap(&array[i],&array[i+1]);
-        sorted = 0;
-      }
-    }
+	int i,sorted=0;
+	while(!sorted){
+		sorted = 1;
+		for(i=0;i+1<length;i+=2){
+			if(array[i]>array[i+1]){
+				swap(&array[i],&array[i+1]);
+				sorted = 0;
+			}
+		}
+		for(i=1;i+1<length;i+=2){
+			if(array[i]>array[i+1]){
+				swap(&array[i],&array[i+1]);
+				sorted = 0;
+			}
+		}
 	}
 }
 int main (int argc, char *argv[]) {
@@ -88,7 +88,7 @@ int main (int argc, char *argv[]) {
 	/* Note: You should deal with cases where (N < size) in Homework 1 */
 	int rc;
 	MPI_File fp;
-  MPI_File fh;
+	MPI_File fh;
 	rc = MPI_File_open(MPI_COMM_WORLD, inName, MPI_MODE_RDONLY, MPI_INFO_NULL, &fp); 
 	if(rc != MPI_SUCCESS){
 		MPI_Abort(MPI_COMM_WORLD, rc);
@@ -106,7 +106,7 @@ int main (int argc, char *argv[]) {
 	if(size>N){
 		// if N < size, root take over
 		if(rank!=ROOT){
-      MPI_File_open(MPI_COMM_WORLD, outName, MPI_MODE_CREATE | MPI_MODE_RDWR, MPI_INFO_NULL, &fh);
+			MPI_File_open(MPI_COMM_WORLD, outName, MPI_MODE_CREATE | MPI_MODE_RDWR, MPI_INFO_NULL, &fh);
 			MPI_Finalize();
 			exit(0);
 		}
@@ -120,10 +120,10 @@ int main (int argc, char *argv[]) {
 			printf("rank %2d io time: %lf\n", rank, finish - start);
 			singleOESort(array, alloc_num);
 			printall(array, alloc_num);      
-      MPI_File_open(MPI_COMM_WORLD, outName, MPI_MODE_CREATE | MPI_MODE_RDWR, MPI_INFO_NULL, &fh);
-      MPI_Offset my_offset = 0;
-      puts("qq");
-      MPI_File_write_at(fh, my_offset, array, alloc_num, MPI_INT, &status);
+			MPI_File_open(MPI_COMM_WORLD, outName, MPI_MODE_CREATE | MPI_MODE_RDWR, MPI_INFO_NULL, &fh);
+			MPI_Offset my_offset = 0;
+			puts("qq");
+			MPI_File_write_at(fh, my_offset, array, alloc_num, MPI_INT, &status);
 			MPI_Finalize();
 			exit(0);
 		}
@@ -131,7 +131,7 @@ int main (int argc, char *argv[]) {
 	else if(alloc_num==1){
 		// if N < 2*size, root take over
 		if(rank!=ROOT){
-      MPI_File_open(MPI_COMM_WORLD, outName, MPI_MODE_CREATE | MPI_MODE_RDWR, MPI_INFO_NULL, &fh);
+			MPI_File_open(MPI_COMM_WORLD, outName, MPI_MODE_CREATE | MPI_MODE_RDWR, MPI_INFO_NULL, &fh);
 			MPI_Finalize();
 			exit(0);
 		}
@@ -145,22 +145,22 @@ int main (int argc, char *argv[]) {
 			printf("rank %2d io time: %lf\n", rank, finish - start);
 			singleOESort(array, alloc_num);
 			printall(array, alloc_num);
-      MPI_File_open(MPI_COMM_WORLD, outName, MPI_MODE_CREATE | MPI_MODE_RDWR, MPI_INFO_NULL, &fh);
-      MPI_Offset my_offset = 0;
-      puts("qq");
-      MPI_File_write_at(fh, my_offset, array, alloc_num, MPI_INT, &status);
+			MPI_File_open(MPI_COMM_WORLD, outName, MPI_MODE_CREATE | MPI_MODE_RDWR, MPI_INFO_NULL, &fh);
+			MPI_Offset my_offset = 0;
+			puts("qq");
+			MPI_File_write_at(fh, my_offset, array, alloc_num, MPI_INT, &status);
 			MPI_Finalize();
 			exit(0);
 		}
 	}
 	else if((alloc_num)%2){
 		alloc_num--;
-    former_alloc_num = alloc_num;
+		former_alloc_num = alloc_num;
 		MPI_File_seek(fp,(MPI_Offset)alloc_num*rank*sizeof(int), MPI_SEEK_SET);
 		if(rank==size-1){
 			alloc_num = N - alloc_num * rank;
 		}
-    last_alloc_num = N - alloc_num * rank;
+		last_alloc_num = N - alloc_num * rank;
 		array = (int*)malloc(sizeof(int)*alloc_num);
 		start = MPI_Wtime();
 		MPI_File_read(fp, array, alloc_num, MPI_INT, &status);
@@ -169,37 +169,43 @@ int main (int argc, char *argv[]) {
 	}
 	else{
 		// last process need deal with more inputs
-    former_alloc_num = alloc_num;
-    MPI_File_seek(fp, (MPI_Offset)rank*alloc_num*sizeof(int), MPI_SEEK_SET);
+		former_alloc_num = alloc_num;
+		MPI_File_seek(fp, (MPI_Offset)rank*alloc_num*sizeof(int), MPI_SEEK_SET);
 		if(rank==size-1){			
 			alloc_num = N - alloc_num * rank;
 		}	
-    last_alloc_num = N - alloc_num * rank;
+		last_alloc_num = N - alloc_num * rank;
 		array = (int*)malloc(sizeof(int)*alloc_num);
 		start = MPI_Wtime();
 		MPI_File_read(fp, array, alloc_num, MPI_INT, &status);
 		finish = MPI_Wtime();
 		printf("rank: %2d io time: %lf\n",rank,finish-start);	
   }
-  //MPI_File_close(fp);
-  // sheu
+	//MPI_File_close(fp);
+	// sheu
+	// todo
+	// detect whether is sorted
+	//--------------------------------------------------------------------------------
+	
+	
+	// sheu
 	// todo
 	// sort and communicate with other
-  //--------------------------------------------------------------------------------
-  int tmp1,tmp2,sorted_temp;
-  int *num_ptr, *pos_ptr; 
-  int i,sorted=0;
+	//--------------------------------------------------------------------------------
+	int tmp1,tmp2,sorted_temp;
+	int *num_ptr, *pos_ptr; 
+	int i,sorted=0;
 #ifdef DEBUG
-  if(rank==ROOT){
-    root_ptr = (int*)calloc(0,sizeof(int)*N);	
-    num_ptr = (int*)malloc(sizeof(int)*size);
-    pos_ptr = (int*)malloc(sizeof(int)*size);
-    for(i=0;i<size;i++){
-      num_ptr[i] = former_alloc_num;
-      pos_ptr[i] = i * former_alloc_num;
-    }
-    num_ptr[size-1] = last_alloc_num;
-  }
+	if(rank==ROOT){
+	root_ptr = (int*)calloc(0,sizeof(int)*N);	
+	num_ptr = (int*)malloc(sizeof(int)*size);
+	pos_ptr = (int*)malloc(sizeof(int)*size);
+	for(i=0;i<size;i++){
+		num_ptr[i] = former_alloc_num;
+		pos_ptr[i] = i * former_alloc_num;
+		}
+	num_ptr[size-1] = last_alloc_num;
+	}
 #endif
 	while(!sorted){
     sorted=1;
@@ -274,9 +280,9 @@ int main (int argc, char *argv[]) {
 		printall(root_ptr, N);
 	}
 #endif
-  MPI_File_open(MPI_COMM_WORLD, outName, MPI_MODE_CREATE | MPI_MODE_RDWR, MPI_INFO_NULL, &fh);
-  MPI_Offset my_offset = rank*former_alloc_num*sizeof(int);
-  MPI_File_write_at(fh, my_offset, array, alloc_num, MPI_INT, &status);
+	MPI_File_open(MPI_COMM_WORLD, outName, MPI_MODE_CREATE | MPI_MODE_RDWR, MPI_INFO_NULL, &fh);
+	MPI_Offset my_offset = rank*former_alloc_num*sizeof(int);
+	MPI_File_write_at(fh, my_offset, array, alloc_num, MPI_INT, &status);
 	MPI_Barrier(MPI_COMM_WORLD);
 	MPI_Finalize();
 	return 0;
