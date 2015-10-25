@@ -259,7 +259,7 @@ int main (int argc, char *argv[]) {
 			alloc_num = N - alloc_num * rank;
 		}
 		last_alloc_num = N - alloc_num * rank;
-		array = (int*)malloc(sizeof(int)*alloc_num);
+		array = (int*)malloc(sizeof(int)*alloc_num*2);
 		start = MPI_Wtime();
 		MPI_File_read(fp, array, alloc_num, MPI_INT, &status);
 		finish = MPI_Wtime();
@@ -273,7 +273,7 @@ int main (int argc, char *argv[]) {
 			alloc_num = N - alloc_num * rank;
 		}	
 		last_alloc_num = N - alloc_num * rank;
-		array = (int*)malloc(sizeof(int)*alloc_num);
+		array = (int*)malloc(sizeof(int)*alloc_num*2);
 		start = MPI_Wtime();
 		MPI_File_read(fp, array, alloc_num, MPI_INT, &status);
 		finish = MPI_Wtime();
@@ -299,69 +299,75 @@ int main (int argc, char *argv[]) {
 		num_ptr[size-1] = last_alloc_num;
 	}
 #endif
+	int *temp_array = malloc(sizeof(int)*alloc_num*2);
+	int *sorted_array = malloc(sizeof(int)*alloc_num*2);
+	if(alloc_num>IS_QS)
+		quicksort=1;
+	if(quicksort)
+		qsort_int(array,alloc_num);
+	else
+		insertionsort(array,alloc_num);
 	while(!sorted){
-    sorted=1;
-    for(i=0;i+1<alloc_num;i+=2){
-      if(array[i]>array[i+1]){
-        swap(&array[i],&array[i+1]);
-        sorted = 0;
-      }
-    }
-    //printf("rank: %2d %d %d\n", rank, array[0], array[1]);	
-    for(i=1;i<alloc_num;i+=2){
-      if(i==alloc_num-1){
+		sorted=1;    
+		//printf("rank: %2d %d %d\n", rank, array[0], array[1]);	
+		
 		start = MPI_Wtime();
-        // has even elements, which is guaranteed but last process
-        
-        // send to rank+1, last node do nothing
-        if(rank!=size-1){
-          MPI_Send(&array[i],1,MPI_INT,rank+1,0,MPI_COMM_WORLD);
-          //MPI_Recv(&tmp1,1,MPI_INT,rank+1,MPI_ANY_TAG,MPI_COMM_WORLD,&status);
-        }
-        // receive from rank-1, root node do nothing
-        if(rank!=ROOT){
-          MPI_Recv(&tmp1,1,MPI_INT,rank-1,MPI_ANY_TAG,MPI_COMM_WORLD,&status);
-          
-        }
-        if(array[0]<tmp1&&rank!=ROOT){
-          swap(&array[0],&tmp1);
-          sorted = 0;
-        }
-        // tmp1 will always be smaller
-        
-        // send to rank-1, root node do nothing
-        if(rank!=ROOT){
-          MPI_Send(&tmp1,1,MPI_INT,rank-1,0,MPI_COMM_WORLD);
-        }
-        // receive from rank+1, last node do nothing
-        if(rank!=size-1){
-          MPI_Recv(&tmp2,1,MPI_INT,rank+1,MPI_ANY_TAG,MPI_COMM_WORLD,&status);
-          array[i] = tmp2;
-        }
-        if(array[i]>tmp2&&rank!=size-1){
-          swap(&array[i],&tmp2);
-          sorted = 0;
-        }
-		finish = MPI_Wtime();
-		commtime += finish - start;
-        continue;
-      }
-      else if(array[i]>array[i+1]){
-        swap(&array[i],&array[i+1]);
-        sorted = 0;
-      }
-      if(rank==size-1&&alloc_num%2&&i==alloc_num-2){
-		start = MPI_Wtime();
-        // has odd elements, only in last process
-        MPI_Recv(&tmp1,1,MPI_INT,rank-1,MPI_ANY_TAG,MPI_COMM_WORLD,&status);        
-        if(array[0]<tmp1){
-          swap(&array[0],&tmp1);
-          sorted = 0;
-        }
-        MPI_Send(&tmp1,1,MPI_INT,rank-1,0,MPI_COMM_WORLD);
-		finish = MPI_Wtime();
-		commtime += finish - start;
-      }
+		// has even elements, which is guaranteed but last process
+		
+		// send to rank+1, last node do nothing
+		if(rank!=size-1){
+			MPI_Send(&array[former_alloc_num/2],former_alloc_num/2,MPI_INT,rank+1,0,MPI_COMM_WORLD);
+			//MPI_Recv(&tmp1,1,MPI_INT,rank+1,MPI_ANY_TAG,MPI_COMM_WORLD,&status);
+		}
+		// receive from rank-1, root node do nothing
+		if(rank!=ROOT){
+			MPI_Recv(temp_array,former_alloc_num/2,MPI_INT,rank-1,MPI_ANY_TAG,MPI_COMM_WORLD,&status);	  
+		}
+		// merge
+		if(rank!=ROOT){
+			for(int i=0,j=0,k=0;i<former_alloc_num;i++){
+				if(j==former_alloc_num/2){
+					sorted_array[i]=array[k];
+					k++;
+					continue;
+				}
+				else if(k==former_alloc_num/2){
+					sorted_array[i]=temp_array[j];
+					j++;
+					continue;
+				}
+				if(temp_array[j]<array[k]){
+					sorted_array[i]=temp_array[j];
+					j++;
+				}
+				else{
+					sorted_array[i]=array[k];
+					k++;
+				}
+			}
+		}
+		// sorted array in sorted_array
+		// original array in array
+		// 0 to former_alloc_num/2 in array should be rear half part of sorted_array
+		// first compare them 
+		if(rank!=ROOT){
+			if(memcmp(array, sorted_array+former_alloc_num/2, former_alloc_num*2)
+				sorted = 0;
+			memcpy(array, sorted_array+former_alloc_num/2, former_alloc_num*2);
+		}
+		if(rank!=ROOT){
+			MPI_Send(sorted_array,former_alloc_num/2,MPI_INT,rank-1,0,MPI_COMM_WORLD);
+		}
+		// receive from rank+1, last node do nothing
+		if(rank!=size-1){
+			MPI_Recv(temp_array,former_alloc_num/2,MPI_INT,rank+1,MPI_ANY_TAG,MPI_COMM_WORLD,&status);
+		}
+		if(rank!=size-1){
+			if(memcmp(array+former_alloc_num/2, temp_array, former_alloc_num*2)
+				sorted = 0;
+			memcpy(array+former_alloc_num/2, temp_array, former_alloc_num*2);	
+		}
+		
     }
     //printf("rank: %2d %d %d\n", rank, array[0], array[1]);	
     MPI_Allreduce(&sorted,&sorted_temp,1,MPI_INT,MPI_LAND,MPI_COMM_WORLD);
