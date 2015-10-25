@@ -311,12 +311,12 @@ int main (int argc, char *argv[]) {
 	if(alloc_num>IS_QS)
 		quicksort=1;
 	cpustart = MPI_Wtime();
-	while(!sorted){	
-		if(quicksort)
+	if(quicksort)
 			qsort_int(array,alloc_num);
-		else
-			insertionsort(array,alloc_num);
-		sorted=1;    
+	else
+		insertionsort(array,alloc_num);
+	while(!sorted){
+		sorted=1;
 		//printf("rank: %2d %d %d\n", rank, array[0], array[1]);	
 		//printall(array, alloc_num);
 		start = MPI_Wtime();
@@ -373,11 +373,16 @@ int main (int argc, char *argv[]) {
 				memcpy(array, sorted_array+former_alloc_num/2, former_alloc_num*2);
 			}*/
 		}
-		if(!sorted&&rank!=ROOT){
+		if(rank==size-1){
+			for(i=0;i<former_alloc_num/2;i++){
+				array[i] = sorted_array[former_alloc_num/2+i];
+			}
+		}
+		/*if(!sorted&&rank!=ROOT){
 			for(i=0;i<former_alloc_num/2;i++){
 				array[i]=sorted_array[former_alloc_num/2+i];
 			}
-		}
+		}*/
 		start = MPI_Wtime();
 		if(rank!=ROOT){
 			MPI_Send(sorted_array,former_alloc_num/2,MPI_INT,rank-1,0,MPI_COMM_WORLD);
@@ -400,11 +405,42 @@ int main (int argc, char *argv[]) {
 				memcpy(array+former_alloc_num/2, temp_array, former_alloc_num*2);	
 			}*/
 		}
-		if(!sorted&&rank!=size-1){
+		if(rank==ROOT){
 			for(i=0;i<former_alloc_num/2;i++){
 				array[former_alloc_num/2+i]=temp_array[i];
 			}
 		}
+		else if(!sorted&&rank!=size-1){
+			// merge from sorted_array and temp_array to array
+			for(i=0,j=0,k=0;i<former_alloc_num;i++){
+				if(j==former_alloc_num/2){
+					array[i]=sorted_array[former_alloc_num/2+k];
+					k++;
+					continue;
+				}
+				else if(k==former_alloc_num/2){
+					array[i]=temp_array[j];
+					j++;
+					continue;
+				}
+				if(temp_array[j]<sorted_array[former_alloc_num/2+k]){
+					array[i]=temp_array[j];
+					j++;
+				}
+				else{
+					array[i]=sorted_array[former_alloc_num/2+k];
+					k++;
+				}
+			}
+			
+		}
+		if(rank==ROOT||rank==size-1&&!sorted){
+			if(quicksort)
+				qsort_int(array,alloc_num);
+			else
+			insertionsort(array,alloc_num);
+		}
+		
 		//printf("rank: %2d %d %d\n", rank, array[0], array[1]);	
 		MPI_Allreduce(&sorted,&sorted_temp,1,MPI_INT,MPI_LAND,MPI_COMM_WORLD);
 		sorted = sorted_temp;
