@@ -117,10 +117,12 @@ int main (int argc, char *argv[]) {
 		start = MPI_Wtime();
 		MPI_File_read(fp, array, alloc_num, MPI_INT, &status);
 		finish = MPI_Wtime();
-		iotime = finish-start;
+		iotimei += finish-start;
 		MPI_File_open(MPI_COMM_WORLD, outName, MPI_MODE_CREATE | MPI_MODE_RDWR, MPI_INFO_NULL, &fh);		
 		if(N>=2){
+#ifdef DEBUG
 			printall(array, alloc_num);
+#endif
 			if(array[0]>array[1])
 				trend = -1;
 			else if(array[0]==array[1])
@@ -130,7 +132,6 @@ int main (int argc, char *argv[]) {
 			for(i=2;i<alloc_num;i++){
 				if(array[i-1]>array[i]&&(trend==-1||trend==0)){
 					trend = -1;
-					puts("QQ");
 					continue;
 				}
 				else if(array[i-1]==array[i]&&trend==0)
@@ -141,12 +142,12 @@ int main (int argc, char *argv[]) {
 				}
 				else{
 					trend = NOTSORTED;
-					puts("QQ");
-					
 					break;
 				}
 			}
+#ifdef DEBUG
 			printf("%d\n", trend);
+#endif
 			if(trend==1||trend==0){
 				printf("sorted file\n");
 				my_offset = 0;
@@ -189,11 +190,12 @@ int main (int argc, char *argv[]) {
 		MPI_Finalize();
 		exit(0);
 	}
-	// sheu if N < # of processes?
+	// read data in memory
+	// sheu if N < 2 x  # of processes, root take over all computation
 	
 	alloc_num = N/size;
-	if(size>N){
-		// if N < size, root take over
+	if(2*size>N){
+		// if N < 2 x size, root take over
 		if(rank!=ROOT){			
 			MPI_Finalize();
 			exit(0);
@@ -206,12 +208,10 @@ int main (int argc, char *argv[]) {
 			MPI_File_read(fp, array, alloc_num, MPI_INT, &status);
 			finish = MPI_Wtime();
 			iotime = finish-start;
-			//printf("rank: %2d io time: %lf\n", rank, iotime);
-			//start = MPI_Wtime();
 			singleOESort(array, alloc_num);
-			//finish = MPI_Wtime();
-			//cputime = finish - start;
-			//printall(array, alloc_num);      
+#ifdef DEBUG
+			printall(array, alloc_num);      
+#endif
 			my_offset = 0;
 			start = MPI_Wtime();
 			MPI_File_write_at(fh, my_offset, array, alloc_num, MPI_INT, &status);
@@ -222,7 +222,7 @@ int main (int argc, char *argv[]) {
 			exit(0);
 		}
 	}
-	else if(alloc_num==1){
+/*	else if(alloc_num==1){
 		// if N < 2*size, root take over
 		if(rank!=ROOT){
 			MPI_Finalize();
@@ -236,11 +236,9 @@ int main (int argc, char *argv[]) {
 			MPI_File_read(fp, array, alloc_num, MPI_INT, &status);
 			finish = MPI_Wtime();
 			iotime = finish-start;
-			//printf("rank: %2d io time: %lf\n", rank, iotime);
 			singleOESort(array, alloc_num);
 			//printall(array, alloc_num);
 			my_offset = 0;
-			//puts("qq");
 			start = MPI_Wtime();
 			MPI_File_write_at(fh, my_offset, array, alloc_num, MPI_INT, &status);
 			finish = MPI_Wtime();
@@ -249,8 +247,11 @@ int main (int argc, char *argv[]) {
 			MPI_Finalize();
 			exit(0);
 		}
-	}
+	}*/
 	else if((alloc_num)%2){
+		// if alloc_num is odd number
+		// every process alloc_num-- to guarantee every process has even elements
+		// except last node
 		alloc_num--;
 		former_alloc_num = alloc_num;
 		MPI_File_seek(fp,(MPI_Offset)alloc_num*rank*sizeof(int), MPI_SEEK_SET);
@@ -262,8 +263,7 @@ int main (int argc, char *argv[]) {
 		start = MPI_Wtime();
 		MPI_File_read(fp, array, alloc_num, MPI_INT, &status);
 		finish = MPI_Wtime();
-		iotime = finish-start;
-		//printf("rank: %2d io time: %lf\n", rank, iotime);
+		iotime += finish-start;
 	}
 	else{
 		// last process need deal with more inputs
@@ -277,33 +277,26 @@ int main (int argc, char *argv[]) {
 		start = MPI_Wtime();
 		MPI_File_read(fp, array, alloc_num, MPI_INT, &status);
 		finish = MPI_Wtime();
-		iotime = finish-start;
-		//printf("rank: %2d io time: %lf\n", rank, iotime);	
-  }
-	//MPI_File_close(fp);
-	// sheu
-	// todo
-	// detect whether is sorted
-	//--------------------------------------------------------------------------------
-	
+		iotime += finish-start;
+	}
 	
 	// sheu
 	// todo
 	// sort and communicate with other
 	//--------------------------------------------------------------------------------
 	int tmp1,tmp2,sorted_temp;
-	int *num_ptr, *pos_ptr; 
 	int sorted=0;
 #ifdef DEBUG
+	int *num_ptr, *pos_ptr; 
 	if(rank==ROOT){
-	root_ptr = (int*)calloc(0,sizeof(int)*N);	
-	num_ptr = (int*)malloc(sizeof(int)*size);
-	pos_ptr = (int*)malloc(sizeof(int)*size);
-	for(i=0;i<size;i++){
-		num_ptr[i] = former_alloc_num;
-		pos_ptr[i] = i * former_alloc_num;
+		root_ptr = (int*)calloc(0,sizeof(int)*N);	
+		num_ptr = (int*)malloc(sizeof(int)*size);
+		pos_ptr = (int*)malloc(sizeof(int)*size);
+		for(i=0;i<size;i++){
+			num_ptr[i] = former_alloc_num;
+			pos_ptr[i] = i * former_alloc_num;
 		}
-	num_ptr[size-1] = last_alloc_num;
+		num_ptr[size-1] = last_alloc_num;
 	}
 #endif
 	while(!sorted){
@@ -349,9 +342,6 @@ int main (int argc, char *argv[]) {
           swap(&array[i],&tmp2);
           sorted = 0;
         }
-        /*if(rank==size-1){
-          puts("NOOOO");
-        }*/
 		finish = MPI_Wtime();
 		commtime += finish - start;
         continue;
@@ -392,8 +382,10 @@ int main (int argc, char *argv[]) {
 	iotime += finish - start;
 	MPI_Allreduce(&iotime,&io_all,1,MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD);
 	MPI_Allreduce(&commtime,&comm_all,1,MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD);
+	io_all /= size;
+	comm_all /= size;
 	if(rank==ROOT)
-		printf("iotime/t:%8.5lf/ncommtime/t:%8.5lf\n",iotime,commtime);
+		printf("iotime/t:%8.5lf/ncommtime/t:%8.5lf\n",io_all ,comm_all);
 	MPI_Finalize();
 	return 0;
 }
