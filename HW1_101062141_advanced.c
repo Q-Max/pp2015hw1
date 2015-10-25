@@ -87,7 +87,7 @@ int main (int argc, char *argv[]) {
   
 	// Part 1: Read file
 	/* Note: You should deal with cases where (N < size) in Homework 1 */
-	int rc, i, trend = NOTSORTED;
+	int rc, i, j, k, trend = NOTSORTED, quicksort = 0;
 	int *array;
 	MPI_File fp;
 	MPI_File fh;
@@ -180,7 +180,7 @@ int main (int argc, char *argv[]) {
 			MPI_File_write_at(fh, my_offset, array, alloc_num, MPI_INT, &status);
 			finish = MPI_Wtime();
 			iotime += finish - start;
-			printf("iotime/t:%8.5lf/ncommtime/t:%8.5lf\n",iotime,commtime);
+			printf("iotime   : %8.5lf\ncommtime : %8.5lf\n",iotime,commtime);
 			
 		}
 	}
@@ -217,7 +217,7 @@ int main (int argc, char *argv[]) {
 			MPI_File_write_at(fh, my_offset, array, alloc_num, MPI_INT, &status);
 			finish = MPI_Wtime();
 			iotime += finish - start;
-			printf("iotime/t:%8.5lf/ncommtime/t:%8.5lf\n",iotime,commtime);
+			printf("iotime   : %8.5lf\ncommtime : %8.5lf\n",iotime,commtime);
 			MPI_Finalize();
 			exit(0);
 		}
@@ -285,7 +285,7 @@ int main (int argc, char *argv[]) {
 	// sort and communicate with other
 	//--------------------------------------------------------------------------------
 	int tmp1,tmp2,sorted_temp;
-	int sorted=0;
+	int sorted=0,count=0;
 #ifdef DEBUG
 	int *num_ptr, *pos_ptr; 
 	if(rank==ROOT){
@@ -303,14 +303,14 @@ int main (int argc, char *argv[]) {
 	int *sorted_array = malloc(sizeof(int)*alloc_num*2);
 	if(alloc_num>IS_QS)
 		quicksort=1;
-	if(quicksort)
-		qsort_int(array,alloc_num);
-	else
-		insertionsort(array,alloc_num);
-	while(!sorted){
+	while(!sorted){		
+		if(quicksort)
+			qsort_int(array,alloc_num);
+		else
+			insertionsort(array,alloc_num);
 		sorted=1;    
 		//printf("rank: %2d %d %d\n", rank, array[0], array[1]);	
-		
+		//printall(array, alloc_num);
 		start = MPI_Wtime();
 		// has even elements, which is guaranteed but last process
 		
@@ -323,9 +323,11 @@ int main (int argc, char *argv[]) {
 		if(rank!=ROOT){
 			MPI_Recv(temp_array,former_alloc_num/2,MPI_INT,rank-1,MPI_ANY_TAG,MPI_COMM_WORLD,&status);	  
 		}
+		finish = MPI_Wtime();
+		commtime += finish - start;
 		// merge
 		if(rank!=ROOT){
-			for(int i=0,j=0,k=0;i<former_alloc_num;i++){
+			for(i=0,j=0,k=0;i<former_alloc_num;i++){
 				if(j==former_alloc_num/2){
 					sorted_array[i]=array[k];
 					k++;
@@ -345,16 +347,30 @@ int main (int argc, char *argv[]) {
 					k++;
 				}
 			}
+			
 		}
 		// sorted array in sorted_array
 		// original array in array
 		// 0 to former_alloc_num/2 in array should be rear half part of sorted_array
 		// first compare them 
 		if(rank!=ROOT){
-			if(memcmp(array, sorted_array+former_alloc_num/2, former_alloc_num*2)
+			for(i=0;i<former_alloc_num/2;i++){
+				if(array[i]!=sorted_array[former_alloc_num/2+i]){
+					sorted = 0;
+					break;
+				}
+			}
+			/*if(memcmp(array, sorted_array+former_alloc_num/2, former_alloc_num*2)){
 				sorted = 0;
-			memcpy(array, sorted_array+former_alloc_num/2, former_alloc_num*2);
+				memcpy(array, sorted_array+former_alloc_num/2, former_alloc_num*2);
+			}*/
 		}
+		if(!sorted&&rank!=ROOT){
+			for(i=0;i<former_alloc_num/2;i++){
+				array[i]=sorted_array[former_alloc_num/2+i];
+			}
+		}
+		start = MPI_Wtime();
 		if(rank!=ROOT){
 			MPI_Send(sorted_array,former_alloc_num/2,MPI_INT,rank-1,0,MPI_COMM_WORLD);
 		}
@@ -362,17 +378,32 @@ int main (int argc, char *argv[]) {
 		if(rank!=size-1){
 			MPI_Recv(temp_array,former_alloc_num/2,MPI_INT,rank+1,MPI_ANY_TAG,MPI_COMM_WORLD,&status);
 		}
+		finish = MPI_Wtime();
+		commtime += finish - start;
 		if(rank!=size-1){
-			if(memcmp(array+former_alloc_num/2, temp_array, former_alloc_num*2)
+			for(i=0;i<former_alloc_num/2;i++){
+				if(array[former_alloc_num/2+i]!=temp_array[i]){
+					sorted = 0;
+					break;
+				}
+			}
+			/*if(memcmp(array+former_alloc_num/2, temp_array, former_alloc_num*2)){
 				sorted = 0;
-			memcpy(array+former_alloc_num/2, temp_array, former_alloc_num*2);	
+				memcpy(array+former_alloc_num/2, temp_array, former_alloc_num*2);	
+			}*/
 		}
-		
-    }
-    //printf("rank: %2d %d %d\n", rank, array[0], array[1]);	
-    MPI_Allreduce(&sorted,&sorted_temp,1,MPI_INT,MPI_LAND,MPI_COMM_WORLD);
-    sorted = sorted_temp;
-  }
+		if(!sorted&&rank!=size-1){
+			for(i=0;i<former_alloc_num/2;i++){
+				array[former_alloc_num/2+i]=temp_array[i];
+			}
+		}
+		//printf("rank: %2d %d %d\n", rank, array[0], array[1]);	
+		MPI_Allreduce(&sorted,&sorted_temp,1,MPI_INT,MPI_LAND,MPI_COMM_WORLD);
+		sorted = sorted_temp;
+		count++;
+		if(count>2*N)
+			break;
+	}
 #ifdef DEBUG
 	MPI_Barrier(MPI_COMM_WORLD);
 	//printall(array,alloc_num);
@@ -391,7 +422,7 @@ int main (int argc, char *argv[]) {
 	io_all /= size;
 	comm_all /= size;
 	if(rank==ROOT)
-		printf("iotime/t:%8.5lf/ncommtime/t:%8.5lf\n",io_all ,comm_all);
+		printf("iotime   t: %8.5lf\ncommtime : %8.5lf\n",io_all ,comm_all);
 	MPI_Finalize();
 	return 0;
 }
