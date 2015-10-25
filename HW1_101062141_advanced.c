@@ -354,8 +354,7 @@ int main (int argc, char *argv[]) {
 					sorted_array[i]=array[k];
 					k++;
 				}
-			}
-			
+			}			
 		}
 		// sorted array in sorted_array
 		// original array in array
@@ -373,7 +372,7 @@ int main (int argc, char *argv[]) {
 				memcpy(array, sorted_array+former_alloc_num/2, former_alloc_num*2);
 			}*/
 		}
-		if(rank==size-1){
+		if(rank==size-1&&size!=1){
 			for(i=0;i<former_alloc_num/2;i++){
 				array[i] = sorted_array[former_alloc_num/2+i];
 			}
@@ -405,7 +404,7 @@ int main (int argc, char *argv[]) {
 				memcpy(array+former_alloc_num/2, temp_array, former_alloc_num*2);	
 			}*/
 		}
-		if(rank==ROOT){
+		if(rank==ROOT&&size!=1){
 			for(i=0;i<former_alloc_num/2;i++){
 				array[former_alloc_num/2+i]=temp_array[i];
 			}
