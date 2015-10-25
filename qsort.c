@@ -24,7 +24,7 @@ int main(int argc, char** argv){
   int fd = 0;
   fd = open(argv[2],O_RDONLY);
   fstat(fd, &st);
-  puts("QQ");
+  //puts("QQ");
   if(fd != -1){
     if(st.st_size/sizeof(int)<numberToRead){
       puts("N is bigger than testcase in input file, read to end");
@@ -37,14 +37,17 @@ int main(int argc, char** argv){
   }
   close(fd);
   FILE *fp = fopen(argv[2],"rb");
-  int numbers[numberToRead];
-  puts("GG");
+  int *numbers = (int*)malloc(sizeof(int)*numberToRead);
+  //puts("GG");
   fread(numbers,sizeof(int),numberToRead,fp);
   //printall(numbers,numberToRead);
   qsort((void*)numbers,numberToRead,sizeof(int),cmp);
-  for(int i=0;i<numberToRead;i++)
+  /*for(int i=0;i<numberToRead;i++)
     printf("%d ",numbers[i]);
-  putchar('\n');
+  putchar('\n');*/
+  fclose(fp);
+  fp = fopen(argv[3],"wb");
+  fwrite(numbers,sizeof(int),numberToRead,fp);
   return 0;
 }
 

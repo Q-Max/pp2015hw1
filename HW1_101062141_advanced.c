@@ -82,7 +82,7 @@ int main (int argc, char *argv[]) {
 	int N = atoi(argv[1]), alloc_num, former_alloc_num=0, last_alloc_num=0;
 	const char *inName = argv[2];
 	const char *outName = argv[3];
-	double start, finish, iotime = 0, commtime = 0, io_all, comm_all;
+	double start, finish, iotime = 0, commtime = 0, io_all, comm_all, cpu_all, cputime = 0, cpustart, cpufinish;
 	int *root_ptr; // for root process (which rank == 0) only
   
 	// Part 1: Read file
@@ -170,6 +170,7 @@ int main (int argc, char *argv[]) {
 				finish = MPI_Wtime();
 				iotime += finish - start;
 				printf("iotime   : %8.5lf\ncommtime : %8.5lf\n",iotime,commtime);
+				free(root_ptr);
 			}
 		}
 		else{
@@ -180,7 +181,7 @@ int main (int argc, char *argv[]) {
 			MPI_File_write_at(fh, my_offset, array, alloc_num, MPI_INT, &status);
 			finish = MPI_Wtime();
 			iotime += finish - start;
-			printf("iotime   : %8.5lf\ncommtime : %8.5lf\n",iotime,commtime);
+			printf("iotime   : %8.5lfs\ncommtime : %8.5lfs\n",iotime,commtime);
 			
 		}
 	}
@@ -189,6 +190,9 @@ int main (int argc, char *argv[]) {
 	if(trend==-1||trend==0||trend==1){
 		MPI_Finalize();
 		exit(0);
+	}
+	else if(rank==ROOT){
+		free(array);
 	}
 	// read data in memory
 	// sheu if N < 2 x  # of processes, root take over all computation
@@ -208,7 +212,10 @@ int main (int argc, char *argv[]) {
 			MPI_File_read(fp, array, alloc_num, MPI_INT, &status);
 			finish = MPI_Wtime();
 			iotime = finish-start;
+			cpustart = MPI_Wtime();
 			singleOESort(array, alloc_num);
+			cpufinish = MPI_Wtime();
+			cputime = cpufinish - cpustart;
 #ifdef DEBUG
 			printall(array, alloc_num);      
 #endif
@@ -217,7 +224,7 @@ int main (int argc, char *argv[]) {
 			MPI_File_write_at(fh, my_offset, array, alloc_num, MPI_INT, &status);
 			finish = MPI_Wtime();
 			iotime += finish - start;
-			printf("iotime   : %8.5lf\ncommtime : %8.5lf\n",iotime,commtime);
+			printf("iotime   : %8.5lfs\ncommtime : %8.5lfs\ncputime  : %8.5fs\n",iotime,commtime,cputime);
 			MPI_Finalize();
 			exit(0);
 		}
@@ -303,7 +310,8 @@ int main (int argc, char *argv[]) {
 	int *sorted_array = malloc(sizeof(int)*alloc_num*2);
 	if(alloc_num>IS_QS)
 		quicksort=1;
-	while(!sorted){		
+	cpustart = MPI_Wtime();
+	while(!sorted){	
 		if(quicksort)
 			qsort_int(array,alloc_num);
 		else
@@ -404,6 +412,8 @@ int main (int argc, char *argv[]) {
 		if(count>2*N)
 			break;
 	}
+	cpufinish = MPI_Wtime();
+	cputime = cpufinish - cpustart - commtime;
 #ifdef DEBUG
 	MPI_Barrier(MPI_COMM_WORLD);
 	//printall(array,alloc_num);
@@ -419,10 +429,11 @@ int main (int argc, char *argv[]) {
 	iotime += finish - start;
 	MPI_Allreduce(&iotime,&io_all,1,MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD);
 	MPI_Allreduce(&commtime,&comm_all,1,MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD);
+	MPI_Allreduce(&cputime,&cpu_all,1,MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD);
 	io_all /= size;
 	comm_all /= size;
 	if(rank==ROOT)
-		printf("iotime   t: %8.5lf\ncommtime : %8.5lf\n",io_all ,comm_all);
+		printf("iotime   : %8.5lfs\ncommtime : %8.5lfs\ncputime  : %8.5lfs(sum)\n",io_all ,comm_all, cpu_all);
 	MPI_Finalize();
 	return 0;
 }
