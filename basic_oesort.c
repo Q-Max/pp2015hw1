@@ -117,7 +117,7 @@ int main (int argc, char *argv[]) {
 		start = MPI_Wtime();
 		MPI_File_read(fp, array, alloc_num, MPI_INT, &status);
 		finish = MPI_Wtime();
-		iotimei += finish-start;
+		iotime += finish-start;
 		MPI_File_open(MPI_COMM_WORLD, outName, MPI_MODE_CREATE | MPI_MODE_RDWR, MPI_INFO_NULL, &fh);		
 		if(N>=2){
 #ifdef DEBUG
