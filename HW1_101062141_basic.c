@@ -276,6 +276,7 @@ int main (int argc, char *argv[]) {
 		num_ptr[size-1] = last_alloc_num;
 	}
 #endif
+	cpustart = MPI_Wtime();
 	while(!sorted){
 		sorted=1;
 		for(i=0;i+1<alloc_num;i+=2){
@@ -284,7 +285,6 @@ int main (int argc, char *argv[]) {
 				sorted = 0;
 			}
 		}
-		cpustart = MPI_Wtime();	
 		for(i=1;i<alloc_num;i+=2){
 			if(i==alloc_num-1){
 				start = MPI_Wtime();
