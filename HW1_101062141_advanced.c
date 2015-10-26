@@ -229,32 +229,6 @@ int main (int argc, char *argv[]) {
 			exit(0);
 		}
 	}
-/*	else if(alloc_num==1){
-		// if N < 2*size, root take over
-		if(rank!=ROOT){
-			MPI_Finalize();
-			exit(0);
-		}
-		else{
-			alloc_num = N;
-			MPI_File_seek(fp,(MPI_Offset)0, MPI_SEEK_SET);
-			array = (int*)malloc(sizeof(int)*alloc_num);
-			start = MPI_Wtime();
-			MPI_File_read(fp, array, alloc_num, MPI_INT, &status);
-			finish = MPI_Wtime();
-			iotime = finish-start;
-			singleOESort(array, alloc_num);
-			//printall(array, alloc_num);
-			my_offset = 0;
-			start = MPI_Wtime();
-			MPI_File_write_at(fh, my_offset, array, alloc_num, MPI_INT, &status);
-			finish = MPI_Wtime();
-			iotime += finish - start;
-			printf("iotime/t:%8.5lf/ncommtime/t:%8.5lf\n",iotime,commtime);
-			MPI_Finalize();
-			exit(0);
-		}
-	}*/
 	else if((alloc_num)%2){
 		// if alloc_num is odd number
 		// every process alloc_num-- to guarantee every process has even elements
@@ -266,7 +240,7 @@ int main (int argc, char *argv[]) {
 			alloc_num = N - alloc_num * rank;
 		}
 		last_alloc_num = N - alloc_num * rank;
-		array = (int*)malloc(sizeof(int)*alloc_num*2);
+		array = (int*)malloc(sizeof(int)*alloc_num);
 		start = MPI_Wtime();
 		MPI_File_read(fp, array, alloc_num, MPI_INT, &status);
 		finish = MPI_Wtime();
@@ -280,7 +254,7 @@ int main (int argc, char *argv[]) {
 			alloc_num = N - alloc_num * rank;
 		}	
 		last_alloc_num = N - alloc_num * rank;
-		array = (int*)malloc(sizeof(int)*alloc_num*2);
+		array = (int*)malloc(sizeof(int)*alloc_num);
 		start = MPI_Wtime();
 		MPI_File_read(fp, array, alloc_num, MPI_INT, &status);
 		finish = MPI_Wtime();
@@ -306,8 +280,8 @@ int main (int argc, char *argv[]) {
 		num_ptr[size-1] = last_alloc_num;
 	}
 #endif
-	int *temp_array = malloc(sizeof(int)*alloc_num*2);
-	int *sorted_array = malloc(sizeof(int)*alloc_num*2);
+	int *temp_array = malloc(sizeof(int)*alloc_num);
+	int *sorted_array = malloc(sizeof(int)*alloc_num);
 	if(alloc_num>IS_QS)
 		quicksort=1;
 	cpustart = MPI_Wtime();
@@ -438,9 +412,7 @@ int main (int argc, char *argv[]) {
 				qsort_int(array,alloc_num);
 			else
 			insertionsort(array,alloc_num);
-		}
-		
-		//printf("rank: %2d %d %d\n", rank, array[0], array[1]);	
+		}		
 		MPI_Allreduce(&sorted,&sorted_temp,1,MPI_INT,MPI_LAND,MPI_COMM_WORLD);
 		sorted = sorted_temp;
 		count++;
@@ -451,7 +423,7 @@ int main (int argc, char *argv[]) {
 	cputime = cpufinish - cpustart - commtime;
 #ifdef DEBUG
 	MPI_Barrier(MPI_COMM_WORLD);
-	//printall(array,alloc_num);
+	printall(array,alloc_num);
 	MPI_Gatherv(array, alloc_num, MPI_INT, root_ptr, num_ptr, pos_ptr, MPI_INT, ROOT, MPI_COMM_WORLD);
 	if(rank==ROOT){
 		printall(root_ptr, N);

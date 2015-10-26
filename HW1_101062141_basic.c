@@ -82,7 +82,7 @@ int main (int argc, char *argv[]) {
 	int N = atoi(argv[1]), alloc_num, former_alloc_num=0, last_alloc_num=0;
 	const char *inName = argv[2];
 	const char *outName = argv[3];
-	double start, finish, iotime = 0, commtime = 0, io_all, comm_all;
+	double start, finish, iotime = 0, commtime = 0, io_all, comm_all, cpu_all, cputime = 0, cpustart, cpufinish;
 	int *root_ptr; // for root process (which rank == 0) only
   
 	// Part 1: Read file
@@ -180,7 +180,7 @@ int main (int argc, char *argv[]) {
 			MPI_File_write_at(fh, my_offset, array, alloc_num, MPI_INT, &status);
 			finish = MPI_Wtime();
 			iotime += finish - start;
-			printf("iotime/t:%8.5lf/ncommtime/t:%8.5lf\n",iotime,commtime);
+			printf("iotime   : %8.5lf\ncommtime : %8.5lf\n",iotime,commtime);
 			
 		}
 	}
@@ -208,7 +208,10 @@ int main (int argc, char *argv[]) {
 			MPI_File_read(fp, array, alloc_num, MPI_INT, &status);
 			finish = MPI_Wtime();
 			iotime = finish-start;
+			cpustart = MPI_Wtime();
 			singleOESort(array, alloc_num);
+			cpufinish = MPI_Wtime();
+			cputime = cpufinish - cpustart;
 #ifdef DEBUG
 			printall(array, alloc_num);      
 #endif
@@ -217,37 +220,11 @@ int main (int argc, char *argv[]) {
 			MPI_File_write_at(fh, my_offset, array, alloc_num, MPI_INT, &status);
 			finish = MPI_Wtime();
 			iotime += finish - start;
-			printf("iotime/t:%8.5lf/ncommtime/t:%8.5lf\n",iotime,commtime);
+			printf("iotime   : %8.5lfs\ncommtime : %8.5lfs\ncputime  : %8.5fs\n",iotime,commtime,cputime);
 			MPI_Finalize();
 			exit(0);
 		}
 	}
-/*	else if(alloc_num==1){
-		// if N < 2*size, root take over
-		if(rank!=ROOT){
-			MPI_Finalize();
-			exit(0);
-		}
-		else{
-			alloc_num = N;
-			MPI_File_seek(fp,(MPI_Offset)0, MPI_SEEK_SET);
-			array = (int*)malloc(sizeof(int)*alloc_num);
-			start = MPI_Wtime();
-			MPI_File_read(fp, array, alloc_num, MPI_INT, &status);
-			finish = MPI_Wtime();
-			iotime = finish-start;
-			singleOESort(array, alloc_num);
-			//printall(array, alloc_num);
-			my_offset = 0;
-			start = MPI_Wtime();
-			MPI_File_write_at(fh, my_offset, array, alloc_num, MPI_INT, &status);
-			finish = MPI_Wtime();
-			iotime += finish - start;
-			printf("iotime/t:%8.5lf/ncommtime/t:%8.5lf\n",iotime,commtime);
-			MPI_Finalize();
-			exit(0);
-		}
-	}*/
 	else if((alloc_num)%2){
 		// if alloc_num is odd number
 		// every process alloc_num-- to guarantee every process has even elements
@@ -300,74 +277,75 @@ int main (int argc, char *argv[]) {
 	}
 #endif
 	while(!sorted){
-    sorted=1;
-    for(i=0;i+1<alloc_num;i+=2){
-      if(array[i]>array[i+1]){
-        swap(&array[i],&array[i+1]);
-        sorted = 0;
-      }
-    }
-    //printf("rank: %2d %d %d\n", rank, array[0], array[1]);	
-	for(i=1;i<alloc_num;i+=2){
-		if(i==alloc_num-1){
-			start = MPI_Wtime();
-    	    // has even elements, which is guaranteed but last process
-        
-      	  // send to rank+1, last node do nothing
-        	if(rank!=size-1){
-        		MPI_Send(&array[i],1,MPI_INT,rank+1,0,MPI_COMM_WORLD);
-	        	//MPI_Recv(&tmp1,1,MPI_INT,rank+1,MPI_ANY_TAG,MPI_COMM_WORLD,&status);
-    	    }
-        	// receive from rank-1, root node do nothing
-	        if(rank!=ROOT){
-    	      MPI_Recv(&tmp1,1,MPI_INT,rank-1,MPI_ANY_TAG,MPI_COMM_WORLD,&status);  
-        	}
-	        if(array[0]<tmp1&&rank!=ROOT){
-    	      swap(&array[0],&tmp1);
-        	  sorted = 0;
-	        }
-    	    // tmp1 will always be smaller
-        
-        	// send to rank-1, root node do nothing
-	        if(rank!=ROOT){
-    	    	MPI_Send(&tmp1,1,MPI_INT,rank-1,0,MPI_COMM_WORLD);
-        	}
-	        // receive from rank+1, last node do nothing
-    	    if(rank!=size-1){
-        		MPI_Recv(&tmp2,1,MPI_INT,rank+1,MPI_ANY_TAG,MPI_COMM_WORLD,&status);
-	        }
-    	    if(array[i]>tmp2&&rank!=size-1){
-        		swap(&array[i],&tmp2);
-        		sorted = 0;
-	        }
-			finish = MPI_Wtime();
-				commtime += finish - start;
-        		continue;
+		sorted=1;
+		for(i=0;i+1<alloc_num;i+=2){
+			if(array[i]>array[i+1]){
+				swap(&array[i],&array[i+1]);
+				sorted = 0;
 			}
-    	  else if(array[i]>array[i+1]){
-			swap(&array[i],&array[i+1]);
-			sorted = 0;
-    	  }
-			if(rank==size-1&&alloc_num%2&&i==alloc_num-2){
-			start = MPI_Wtime();
-        	// has odd elements, only in last process
-	        MPI_Recv(&tmp1,1,MPI_INT,rank-1,MPI_ANY_TAG,MPI_COMM_WORLD,&status);        
-    	    if(array[0]<tmp1){
-        	  swap(&array[0],&tmp1);
-	          sorted = 0;
-    	    }
-        	MPI_Send(&tmp1,1,MPI_INT,rank-1,0,MPI_COMM_WORLD);
-			finish = MPI_Wtime();
-			commtime += finish - start;
 		}
-    }
-    //printf("rank: %2d %d %d\n", rank, array[0], array[1]);	
-    MPI_Allreduce(&sorted,&sorted_temp,1,MPI_INT,MPI_LAND,MPI_COMM_WORLD);
-    sorted = sorted_temp;
-  }
+		cpustart = MPI_Wtime();	
+		for(i=1;i<alloc_num;i+=2){
+			if(i==alloc_num-1){
+				start = MPI_Wtime();
+				// has even elements, which is guaranteed but last process
+			
+				// send to rank+1, last node do nothing
+				if(rank!=size-1){
+					MPI_Send(&array[i],1,MPI_INT,rank+1,0,MPI_COMM_WORLD);
+					//MPI_Recv(&tmp1,1,MPI_INT,rank+1,MPI_ANY_TAG,MPI_COMM_WORLD,&status);
+				}
+				// receive from rank-1, root node do nothing
+				if(rank!=ROOT){
+					MPI_Recv(&tmp1,1,MPI_INT,rank-1,MPI_ANY_TAG,MPI_COMM_WORLD,&status);  
+				}
+				if(array[0]<tmp1&&rank!=ROOT){
+					swap(&array[0],&tmp1);
+					sorted = 0;
+				}
+				// tmp1 will always be smaller
+			
+				// send to rank-1, root node do nothing
+				if(rank!=ROOT){
+					MPI_Send(&tmp1,1,MPI_INT,rank-1,0,MPI_COMM_WORLD);
+				}
+				// receive from rank+1, last node do nothing
+				if(rank!=size-1){
+					MPI_Recv(&tmp2,1,MPI_INT,rank+1,MPI_ANY_TAG,MPI_COMM_WORLD,&status);
+				}
+				if(array[i]>tmp2&&rank!=size-1){
+					swap(&array[i],&tmp2);
+					sorted = 0;
+				}
+				finish = MPI_Wtime();
+				commtime += finish - start;
+				continue;
+			}
+			else if(array[i]>array[i+1]){
+				swap(&array[i],&array[i+1]);
+				sorted = 0;
+			}
+			if(rank==size-1&&alloc_num%2&&i==alloc_num-2){
+				start = MPI_Wtime();
+				// has odd elements, only in last process
+				MPI_Recv(&tmp1,1,MPI_INT,rank-1,MPI_ANY_TAG,MPI_COMM_WORLD,&status);        
+				if(array[0]<tmp1){
+					swap(&array[0],&tmp1);
+					sorted = 0;
+				}
+				MPI_Send(&tmp1,1,MPI_INT,rank-1,0,MPI_COMM_WORLD);
+				finish = MPI_Wtime();
+				commtime += finish - start;
+			}
+		}
+		MPI_Allreduce(&sorted,&sorted_temp,1,MPI_INT,MPI_LAND,MPI_COMM_WORLD);
+		sorted = sorted_temp;
+	}
+	cpufinish = MPI_Wtime();
+	cputime = cpufinish - cpustart - commtime;
 #ifdef DEBUG
 	MPI_Barrier(MPI_COMM_WORLD);
-	//printall(array,alloc_num);
+	printall(array,alloc_num);
 	MPI_Gatherv(array, alloc_num, MPI_INT, root_ptr, num_ptr, pos_ptr, MPI_INT, ROOT, MPI_COMM_WORLD);
 	if(rank==ROOT){
 		printall(root_ptr, N);
@@ -380,10 +358,11 @@ int main (int argc, char *argv[]) {
 	iotime += finish - start;
 	MPI_Allreduce(&iotime,&io_all,1,MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD);
 	MPI_Allreduce(&commtime,&comm_all,1,MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD);
+	MPI_Allreduce(&cputime,&cpu_all,1,MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD);
 	io_all /= size;
 	comm_all /= size;
 	if(rank==ROOT)
-		printf("iotime/t:%8.5lf/ncommtime/t:%8.5lf\n",io_all ,comm_all);
+		printf("iotime   : %8.5lfs\ncommtime : %8.5lfs\ncputime  : %8.5lfs(sum)\n",io_all ,comm_all, cpu_all);
 	MPI_Finalize();
 	return 0;
 }
