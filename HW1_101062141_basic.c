@@ -25,25 +25,6 @@ inline void swap(int* a, int* b){
 	*b = *a ^ *b;
 	*a = *a ^ *b;
 }
-int cmp(const void* a, const void* b){
-	if(*(int*)a > *(int*)b)return 1;
-	else if(*(int*)a < *(int*)b)return -1;
-	return 0; 
-}
-inline void insertionsort(int* array, int length)
-{
-	int n, j, i;
-	for (i = 1; i < length; ++i){
-		n = array[i];
-		for (j = i - 1; j >= 0 && array[j] > n; --j)
-			array[j + 1] = array[j];
-		array[j + 1] = n;
-	}
-}
-
-inline void qsort_int(int* array, int length){
-	qsort((void*)array, length, sizeof(int), cmp);
-}
 void singleOESort(int* array, int length){
 	int i,sorted=0;
 	while(!sorted){
@@ -92,6 +73,7 @@ int main (int argc, char *argv[]) {
 	MPI_File fp;
 	MPI_File fh;
 	MPI_Offset my_offset;
+	MPI_Request req;
 	rc = MPI_File_open(MPI_COMM_WORLD, inName, MPI_MODE_RDONLY, MPI_INFO_NULL, &fp); 
 	if(rc != MPI_SUCCESS){
 		MPI_Abort(MPI_COMM_WORLD, rc);
@@ -292,8 +274,7 @@ int main (int argc, char *argv[]) {
 			
 				// send to rank+1, last node do nothing
 				if(rank!=size-1){
-					MPI_Send(&array[i],1,MPI_INT,rank+1,0,MPI_COMM_WORLD);
-					//MPI_Recv(&tmp1,1,MPI_INT,rank+1,MPI_ANY_TAG,MPI_COMM_WORLD,&status);
+					MPI_Isend(&array[i],1,MPI_INT,rank+1,0,MPI_COMM_WORLD,&req);
 				}
 				// receive from rank-1, root node do nothing
 				if(rank!=ROOT){
@@ -304,7 +285,8 @@ int main (int argc, char *argv[]) {
 					sorted = 0;
 				}
 				// tmp1 will always be smaller
-			
+				if(rank!=size-1)
+					MPI_Wait(req, MPI_STATUS_IGNORE);
 				// send to rank-1, root node do nothing
 				if(rank!=ROOT){
 					MPI_Send(&tmp1,1,MPI_INT,rank-1,0,MPI_COMM_WORLD);
@@ -317,6 +299,8 @@ int main (int argc, char *argv[]) {
 					swap(&array[i],&tmp2);
 					sorted = 0;
 				}
+				if(rank!=ROOT)
+					MPI_Wait(req, MPI_STATUS_IGNORE);
 				finish = MPI_Wtime();
 				commtime += finish - start;
 				continue;
@@ -333,12 +317,15 @@ int main (int argc, char *argv[]) {
 					swap(&array[0],&tmp1);
 					sorted = 0;
 				}
-				MPI_Send(&tmp1,1,MPI_INT,rank-1,0,MPI_COMM_WORLD);
+				MPI_Isend(&tmp1,1,MPI_INT,rank-1,0,MPI_COMM_WORLD,&req);
 				finish = MPI_Wtime();
 				commtime += finish - start;
 			}
 		}
+		start = MPI_Wtime();
 		MPI_Allreduce(&sorted,&sorted_temp,1,MPI_INT,MPI_LAND,MPI_COMM_WORLD);
+		finish = MPI_Wtime();
+		commtime += finish - start;
 		sorted = sorted_temp;
 	}
 	cpufinish = MPI_Wtime();
