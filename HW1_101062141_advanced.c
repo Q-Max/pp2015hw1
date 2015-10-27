@@ -375,10 +375,10 @@ int main (int argc, char *argv[]) {
 				}
 			}
 		}
+		start = MPI_Wtime();
 		if(rank!=size-1)
 			MPI_Wait(&req, MPI_STATUS_IGNORE);
 		// receive from rank+1, last node do nothing
-		start = MPI_Wtime();
 		if(rank!=ROOT){
 			MPI_Isend(sorted_array,former_alloc_num/2,MPI_INT,rank-1,0,MPI_COMM_WORLD, &req);
 		}
@@ -458,9 +458,12 @@ int main (int argc, char *argv[]) {
 			else
 			insertionsort(array,alloc_num);
 		}*/
+		start = MPI_Wtime();
 		if(rank!=ROOT)
 			MPI_Wait(&req, MPI_STATUS_IGNORE);
 		MPI_Allreduce(&sorted,&sorted_temp,1,MPI_INT,MPI_LAND,MPI_COMM_WORLD);
+		finish = MPI_Wtime();
+		commtime += finish - start;
 		sorted = sorted_temp;
 		count++;
 		if(count>2*N)
