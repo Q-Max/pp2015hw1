@@ -243,7 +243,7 @@ int main (int argc, char *argv[]) {
 	// todo
 	// sort and communicate with other
 	//--------------------------------------------------------------------------------
-	int tmp1,tmp2,sorted_temp;
+	int tmp1,tmp2,sorted_temp,count=0;
 	int sorted=0;
 #ifdef DEBUG
 	int *num_ptr, *pos_ptr; 
@@ -327,6 +327,11 @@ int main (int argc, char *argv[]) {
 		finish = MPI_Wtime();
 		commtime += finish - start;
 		sorted = sorted_temp;
+		count++;
+		/*if(count>2*N){
+			printf("quite weird, I can't finish");
+			break;
+		}*/
 	}
 	cpufinish = MPI_Wtime();
 	cputime = cpufinish - cpustart - commtime;
