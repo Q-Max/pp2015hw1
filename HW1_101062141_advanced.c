@@ -347,12 +347,13 @@ int main (int argc, char *argv[]) {
 				array[i] = sorted_array[former_alloc_num/2+i];
 			}
 		}
+		if(rank!=size-1)
+			MPI_Wait(&req, MPI_STATUS_IGNORE);
+		// receive from rank+1, last node do nothing
 		start = MPI_Wtime();
 		if(rank!=ROOT){
 			MPI_Isend(sorted_array,former_alloc_num/2,MPI_INT,rank-1,0,MPI_COMM_WORLD, &req);
 		}
-		MPI_Wait(&req, MPI_STATUS_IGNORE);
-		// receive from rank+1, last node do nothing
 		if(rank!=size-1){
 			MPI_Recv(temp_array,former_alloc_num/2,MPI_INT,rank+1,MPI_ANY_TAG,MPI_COMM_WORLD,&status);
 		}
@@ -402,6 +403,8 @@ int main (int argc, char *argv[]) {
 			else
 			insertionsort(array,alloc_num);
 		}		
+		if(rank!=ROOT)
+			MPI_Wait(&req, MPI_STATUS_IGNORE);
 		MPI_Allreduce(&sorted,&sorted_temp,1,MPI_INT,MPI_LAND,MPI_COMM_WORLD);
 		sorted = sorted_temp;
 		count++;
