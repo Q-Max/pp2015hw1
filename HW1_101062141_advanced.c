@@ -92,6 +92,7 @@ int main (int argc, char *argv[]) {
 	MPI_File fp;
 	MPI_File fh;
 	MPI_Offset my_offset;
+	MPI_Request req;
 	rc = MPI_File_open(MPI_COMM_WORLD, inName, MPI_MODE_RDONLY, MPI_INFO_NULL, &fp); 
 	if(rc != MPI_SUCCESS){
 		MPI_Abort(MPI_COMM_WORLD, rc);
@@ -291,15 +292,12 @@ int main (int argc, char *argv[]) {
 		insertionsort(array,alloc_num);
 	while(!sorted){
 		sorted=1;
-		//printf("rank: %2d %d %d\n", rank, array[0], array[1]);	
-		//printall(array, alloc_num);
 		start = MPI_Wtime();
 		// has even elements, which is guaranteed but last process
 		
 		// send to rank+1, last node do nothing
 		if(rank!=size-1){
-			MPI_Send(&array[former_alloc_num/2],former_alloc_num/2,MPI_INT,rank+1,0,MPI_COMM_WORLD);
-			//MPI_Recv(&tmp1,1,MPI_INT,rank+1,MPI_ANY_TAG,MPI_COMM_WORLD,&status);
+			MPI_Isend(&array[former_alloc_num/2],former_alloc_num/2,MPI_INT,rank+1,0,MPI_COMM_WORLD, &req);
 		}
 		// receive from rank-1, root node do nothing
 		if(rank!=ROOT){
@@ -341,25 +339,19 @@ int main (int argc, char *argv[]) {
 					break;
 				}
 			}
-			/*if(memcmp(array, sorted_array+former_alloc_num/2, former_alloc_num*2)){
-				sorted = 0;
-				memcpy(array, sorted_array+former_alloc_num/2, former_alloc_num*2);
-			}*/
 		}
 		if(rank==size-1&&size!=1){
+		// can use merge instead
+		// merge sorted_array[k/2:k-1] and array[k/2:k-1] into array[0:k-1]
 			for(i=0;i<former_alloc_num/2;i++){
 				array[i] = sorted_array[former_alloc_num/2+i];
 			}
 		}
-		/*if(!sorted&&rank!=ROOT){
-			for(i=0;i<former_alloc_num/2;i++){
-				array[i]=sorted_array[former_alloc_num/2+i];
-			}
-		}*/
 		start = MPI_Wtime();
 		if(rank!=ROOT){
-			MPI_Send(sorted_array,former_alloc_num/2,MPI_INT,rank-1,0,MPI_COMM_WORLD);
+			MPI_Isend(sorted_array,former_alloc_num/2,MPI_INT,rank-1,0,MPI_COMM_WORLD, &req);
 		}
+		MPI_Wait(&req, MPI_STATUS_IGNORE);
 		// receive from rank+1, last node do nothing
 		if(rank!=size-1){
 			MPI_Recv(temp_array,former_alloc_num/2,MPI_INT,rank+1,MPI_ANY_TAG,MPI_COMM_WORLD,&status);
@@ -373,12 +365,9 @@ int main (int argc, char *argv[]) {
 					break;
 				}
 			}
-			/*if(memcmp(array+former_alloc_num/2, temp_array, former_alloc_num*2)){
-				sorted = 0;
-				memcpy(array+former_alloc_num/2, temp_array, former_alloc_num*2);	
-			}*/
 		}
 		if(rank==ROOT&&size!=1){
+		// can be merged too
 			for(i=0;i<former_alloc_num/2;i++){
 				array[former_alloc_num/2+i]=temp_array[i];
 			}
