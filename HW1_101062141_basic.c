@@ -286,10 +286,10 @@ int main (int argc, char *argv[]) {
 				}
 				// tmp1 will always be smaller
 				if(rank!=size-1)
-					MPI_Wait(req, MPI_STATUS_IGNORE);
+					MPI_Wait(&req, MPI_STATUS_IGNORE);
 				// send to rank-1, root node do nothing
 				if(rank!=ROOT){
-					MPI_Send(&tmp1,1,MPI_INT,rank-1,0,MPI_COMM_WORLD);
+					MPI_Isend(&tmp1,1,MPI_INT,rank-1,0,MPI_COMM_WORLD, &req);
 				}
 				// receive from rank+1, last node do nothing
 				if(rank!=size-1){
@@ -300,7 +300,7 @@ int main (int argc, char *argv[]) {
 					sorted = 0;
 				}
 				if(rank!=ROOT)
-					MPI_Wait(req, MPI_STATUS_IGNORE);
+					MPI_Wait(&req, MPI_STATUS_IGNORE);
 				finish = MPI_Wtime();
 				commtime += finish - start;
 				continue;
