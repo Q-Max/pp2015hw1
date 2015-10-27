@@ -92,7 +92,7 @@ int main (int argc, char *argv[]) {
 	MPI_File fp;
 	MPI_File fh;
 	MPI_Offset my_offset;
-	MPI_Request req;
+	MPI_Request req; // for non-blocking MPI_Isend
 	rc = MPI_File_open(MPI_COMM_WORLD, inName, MPI_MODE_RDONLY, MPI_INFO_NULL, &fp); 
 	if(rc != MPI_SUCCESS){
 		MPI_Abort(MPI_COMM_WORLD, rc);
@@ -282,6 +282,7 @@ int main (int argc, char *argv[]) {
 	}
 #endif
 	int *temp_array = malloc(sizeof(int)*alloc_num);
+	int *ptr;
 	int *sorted_array = malloc(sizeof(int)*alloc_num);
 	if(alloc_num>IS_QS)
 		quicksort=1;
@@ -340,11 +341,38 @@ int main (int argc, char *argv[]) {
 				}
 			}
 		}
-		if(rank==size-1&&size!=1){
+		/*if(rank==size-1&&size!=1){
 		// can use merge instead
 		// merge sorted_array[k/2:k-1] and array[k/2:k-1] into array[0:k-1]
 			for(i=0;i<former_alloc_num/2;i++){
 				array[i] = sorted_array[former_alloc_num/2+i];
+			}
+		}*/		
+		if(!sorted&&rank==size-1&&size!=1){
+			// merge from sorted_array[former_alloc_num/2:former_alloc_num-1] 
+			// and array[former_alloc_num/2:alloc_num-1]
+			// to array
+			for(i=0,j=0,k=former_alloc_num/2;i<alloc_num;i++){
+				if(i==k)
+					break;
+				if(j==former_alloc_num/2){
+					array[i]=array[k];
+					k++;
+					continue;
+				}
+				else if(k==alloc_num){
+					array[i]=sorted_array[former_alloc_num/2+j];
+					j++;
+					continue;
+				}
+				if(sorted_array[former_alloc_num/2+j]<array[k]){
+					array[i]=sorted_array[former_alloc_num/2+j];
+					j++;
+				}
+				else{
+					array[i]=array[k];
+					k++;
+				}
 			}
 		}
 		if(rank!=size-1)
@@ -367,11 +395,39 @@ int main (int argc, char *argv[]) {
 				}
 			}
 		}
-		if(rank==ROOT&&size!=1){
-		// can be merged too
+		/*if(rank==ROOT&&size!=1){
+		// can't be merged too
 			for(i=0;i<former_alloc_num/2;i++){
 				array[former_alloc_num/2+i]=temp_array[i];
 			}
+		}*/
+		if(!sorted&&rank==ROOT&&size!=1){
+			// merge from temp_array[0:former_alloc_num/2] 
+			// and array[0:former_alloc_num/2-1]
+			// to sorted_array
+			for(i=0,j=0,k=0;i<alloc_num;i++){
+				if(j==former_alloc_num/2){
+					sorted_array[i]=temp_array[k];
+					k++;
+					continue;
+				}
+				else if(k==former_alloc_num/2){
+					sorted_array[i]=array[j];
+					j++;
+					continue;
+				}
+				if(array[j]<temp_array[k]){
+					sorted_array[i]=array[j];
+					j++;
+				}
+				else{
+					sorted_array[i]=temp_array[k];
+					k++;
+				}
+			}
+			ptr = array;
+			array = sorted_array;
+			sorted_array = ptr;
 		}
 		else if(!sorted&&rank!=size-1){
 			// merge from sorted_array and temp_array to array
@@ -394,15 +450,14 @@ int main (int argc, char *argv[]) {
 					array[i]=sorted_array[former_alloc_num/2+k];
 					k++;
 				}
-			}
-			
+			}			
 		}
-		if(rank==ROOT||rank==size-1&&!sorted){
+		/*if(rank==ROOT||rank==size-1&&!sorted){
 			if(quicksort)
 				qsort_int(array,alloc_num);
 			else
 			insertionsort(array,alloc_num);
-		}		
+		}*/
 		if(rank!=ROOT)
 			MPI_Wait(&req, MPI_STATUS_IGNORE);
 		MPI_Allreduce(&sorted,&sorted_temp,1,MPI_INT,MPI_LAND,MPI_COMM_WORLD);
