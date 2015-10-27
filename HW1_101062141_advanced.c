@@ -292,184 +292,185 @@ int main (int argc, char *argv[]) {
 	else
 		insertionsort(array,alloc_num);
 	if(size==1)
-		while(!sorted){
-			sorted=1;
-			start = MPI_Wtime();
-			// has even elements, which is guaranteed but last process
-			
-			// send to rank+1, last node do nothing
-			if(rank!=size-1){
-				MPI_Isend(&array[former_alloc_num/2],former_alloc_num/2,MPI_INT,rank+1,0,MPI_COMM_WORLD, &req);
-			}
-			// receive from rank-1, root node do nothing
-			if(rank!=ROOT){
-				MPI_Recv(temp_array,former_alloc_num/2,MPI_INT,rank-1,MPI_ANY_TAG,MPI_COMM_WORLD,&status);	  
-			}
-			finish = MPI_Wtime();
-			commtime += finish - start;
-			// merge
-			if(rank!=ROOT){
-				for(i=0,j=0,k=0;i<former_alloc_num;i++){
-					if(j==former_alloc_num/2){
-						sorted_array[i]=array[k];
-						k++;
-						continue;
-					}
-					else if(k==former_alloc_num/2){
-						sorted_array[i]=temp_array[j];
-						j++;
-						continue;
-					}
-					if(temp_array[j]<array[k]){
-						sorted_array[i]=temp_array[j];
-						j++;
-					}
-					else{
-						sorted_array[i]=array[k];
-						k++;
-					}
-				}			
-			}
-			// sorted array in sorted_array
-			// original array in array
-			// 0 to former_alloc_num/2 in array should be rear half part of sorted_array
-			// first compare them 
-			if(rank!=ROOT){
-				for(i=0;i<former_alloc_num/2;i++){
-					if(array[i]!=sorted_array[former_alloc_num/2+i]){
-						sorted = 0;
-						break;
-					}
-				}
-			}
-			/*if(rank==size-1&&size!=1){
-			// can use merge instead
-			// merge sorted_array[k/2:k-1] and array[k/2:k-1] into array[0:k-1]
-				for(i=0;i<former_alloc_num/2;i++){
-					array[i] = sorted_array[former_alloc_num/2+i];
-				}
-			}*/		
-			if(!sorted&&rank==size-1&&size!=1){
-				// merge from sorted_array[former_alloc_num/2:former_alloc_num-1] 
-				// and array[former_alloc_num/2:alloc_num-1]
-				// to array
-				for(i=0,j=0,k=former_alloc_num/2;i<alloc_num;i++){
-					if(i==k)
-						break;
-					if(j==former_alloc_num/2){
-						array[i]=array[k];
-						k++;
-						continue;
-					}
-					else if(k==alloc_num){
-						array[i]=sorted_array[former_alloc_num/2+j];
-						j++;
-						continue;
-					}
-					if(sorted_array[former_alloc_num/2+j]<array[k]){
-						array[i]=sorted_array[former_alloc_num/2+j];
-						j++;
-					}
-					else{
-						array[i]=array[k];
-						k++;
-					}
-				}
-			}
-			start = MPI_Wtime();
-			if(rank!=size-1)
-				MPI_Wait(&req, MPI_STATUS_IGNORE);
-			// receive from rank+1, last node do nothing
-			if(rank!=ROOT){
-				MPI_Isend(sorted_array,former_alloc_num/2,MPI_INT,rank-1,0,MPI_COMM_WORLD, &req);
-			}
-			if(rank!=size-1){
-				MPI_Recv(temp_array,former_alloc_num/2,MPI_INT,rank+1,MPI_ANY_TAG,MPI_COMM_WORLD,&status);
-			}
-			finish = MPI_Wtime();
-			commtime += finish - start;
-			if(rank!=size-1){
-				for(i=0;i<former_alloc_num/2;i++){
-					if(array[former_alloc_num/2+i]!=temp_array[i]){
-						sorted = 0;
-						break;
-					}
-				}
-			}
-			/*if(rank==ROOT&&size!=1){
-			// can't be merged too
-				for(i=0;i<former_alloc_num/2;i++){
-					array[former_alloc_num/2+i]=temp_array[i];
-				}
-			}*/
-			if(!sorted&&rank==ROOT&&size!=1){
-				// merge from temp_array[0:former_alloc_num/2] 
-				// and array[0:former_alloc_num/2-1]
-				// to sorted_array
-				for(i=0,j=0,k=0;i<alloc_num;i++){
-					if(j==former_alloc_num/2){
-						sorted_array[i]=temp_array[k];
-						k++;
-						continue;
-					}
-					else if(k==former_alloc_num/2){
-						sorted_array[i]=array[j];
-						j++;
-						continue;
-					}
-					if(array[j]<temp_array[k]){
-						sorted_array[i]=array[j];
-						j++;
-					}
-					else{
-						sorted_array[i]=temp_array[k];
-						k++;
-					}
-				}
-				ptr = array;
-				array = sorted_array;
-				sorted_array = ptr;
-			}
-			else if(!sorted&&rank!=size-1){
-				// merge from sorted_array and temp_array to array
-				for(i=0,j=0,k=0;i<former_alloc_num;i++){
-					if(j==former_alloc_num/2){
-						array[i]=sorted_array[former_alloc_num/2+k];
-						k++;
-						continue;
-					}
-					else if(k==former_alloc_num/2){
-						array[i]=temp_array[j];
-						j++;
-						continue;
-					}
-					if(temp_array[j]<sorted_array[former_alloc_num/2+k]){
-						array[i]=temp_array[j];
-						j++;
-					}
-					else{
-						array[i]=sorted_array[former_alloc_num/2+k];
-						k++;
-					}
-				}			
-			}
-			/*if(rank==ROOT||rank==size-1&&!sorted){
-				if(quicksort)
-					qsort_int(array,alloc_num);
-				else
-				insertionsort(array,alloc_num);
-			}*/
-			start = MPI_Wtime();
-			if(rank!=ROOT)
-				MPI_Wait(&req, MPI_STATUS_IGNORE);
-			MPI_Allreduce(&sorted,&sorted_temp,1,MPI_INT,MPI_LAND,MPI_COMM_WORLD);
-			finish = MPI_Wtime();
-			commtime += finish - start;
-			sorted = sorted_temp;
-			count++;
-			if(count>2*N)
-				break;
+		sorted = 1;
+	while(!sorted){
+		sorted=1;
+		start = MPI_Wtime();
+		// has even elements, which is guaranteed but last process
+		
+		// send to rank+1, last node do nothing
+		if(rank!=size-1){
+			MPI_Isend(&array[former_alloc_num/2],former_alloc_num/2,MPI_INT,rank+1,0,MPI_COMM_WORLD, &req);
 		}
+		// receive from rank-1, root node do nothing
+		if(rank!=ROOT){
+			MPI_Recv(temp_array,former_alloc_num/2,MPI_INT,rank-1,MPI_ANY_TAG,MPI_COMM_WORLD,&status);	  
+		}
+		finish = MPI_Wtime();
+		commtime += finish - start;
+		// merge
+		if(rank!=ROOT){
+			for(i=0,j=0,k=0;i<former_alloc_num;i++){
+				if(j==former_alloc_num/2){
+					sorted_array[i]=array[k];
+					k++;
+					continue;
+				}
+				else if(k==former_alloc_num/2){
+					sorted_array[i]=temp_array[j];
+					j++;
+					continue;
+				}
+				if(temp_array[j]<array[k]){
+					sorted_array[i]=temp_array[j];
+					j++;
+				}
+				else{
+					sorted_array[i]=array[k];
+					k++;
+				}
+			}			
+		}
+		// sorted array in sorted_array
+		// original array in array
+		// 0 to former_alloc_num/2 in array should be rear half part of sorted_array
+		// first compare them 
+		if(rank!=ROOT){
+			for(i=0;i<former_alloc_num/2;i++){
+				if(array[i]!=sorted_array[former_alloc_num/2+i]){
+					sorted = 0;
+					break;
+				}
+			}
+		}
+		/*if(rank==size-1&&size!=1){
+		// can use merge instead
+		// merge sorted_array[k/2:k-1] and array[k/2:k-1] into array[0:k-1]
+			for(i=0;i<former_alloc_num/2;i++){
+				array[i] = sorted_array[former_alloc_num/2+i];
+			}
+		}*/		
+		if(!sorted&&rank==size-1&&size!=1){
+			// merge from sorted_array[former_alloc_num/2:former_alloc_num-1] 
+			// and array[former_alloc_num/2:alloc_num-1]
+			// to array
+			for(i=0,j=0,k=former_alloc_num/2;i<alloc_num;i++){
+				if(i==k)
+					break;
+				if(j==former_alloc_num/2){
+					array[i]=array[k];
+					k++;
+					continue;
+				}
+				else if(k==alloc_num){
+					array[i]=sorted_array[former_alloc_num/2+j];
+					j++;
+					continue;
+				}
+				if(sorted_array[former_alloc_num/2+j]<array[k]){
+					array[i]=sorted_array[former_alloc_num/2+j];
+					j++;
+				}
+				else{
+					array[i]=array[k];
+					k++;
+				}
+			}
+		}
+		start = MPI_Wtime();
+		if(rank!=size-1)
+			MPI_Wait(&req, MPI_STATUS_IGNORE);
+		// receive from rank+1, last node do nothing
+		if(rank!=ROOT){
+			MPI_Isend(sorted_array,former_alloc_num/2,MPI_INT,rank-1,0,MPI_COMM_WORLD, &req);
+		}
+		if(rank!=size-1){
+			MPI_Recv(temp_array,former_alloc_num/2,MPI_INT,rank+1,MPI_ANY_TAG,MPI_COMM_WORLD,&status);
+		}
+		finish = MPI_Wtime();
+		commtime += finish - start;
+		if(rank!=size-1){
+			for(i=0;i<former_alloc_num/2;i++){
+				if(array[former_alloc_num/2+i]!=temp_array[i]){
+					sorted = 0;
+					break;
+				}
+			}
+		}
+		/*if(rank==ROOT&&size!=1){
+		// can't be merged too
+			for(i=0;i<former_alloc_num/2;i++){
+				array[former_alloc_num/2+i]=temp_array[i];
+			}
+		}*/
+		if(!sorted&&rank==ROOT&&size!=1){
+			// merge from temp_array[0:former_alloc_num/2] 
+			// and array[0:former_alloc_num/2-1]
+			// to sorted_array
+			for(i=0,j=0,k=0;i<alloc_num;i++){
+				if(j==former_alloc_num/2){
+					sorted_array[i]=temp_array[k];
+					k++;
+					continue;
+				}
+				else if(k==former_alloc_num/2){
+					sorted_array[i]=array[j];
+					j++;
+					continue;
+				}
+				if(array[j]<temp_array[k]){
+					sorted_array[i]=array[j];
+					j++;
+				}
+				else{
+					sorted_array[i]=temp_array[k];
+					k++;
+				}
+			}
+			ptr = array;
+			array = sorted_array;
+			sorted_array = ptr;
+		}
+		else if(!sorted&&rank!=size-1){
+			// merge from sorted_array and temp_array to array
+			for(i=0,j=0,k=0;i<former_alloc_num;i++){
+				if(j==former_alloc_num/2){
+					array[i]=sorted_array[former_alloc_num/2+k];
+					k++;
+					continue;
+				}
+				else if(k==former_alloc_num/2){
+					array[i]=temp_array[j];
+					j++;
+					continue;
+				}
+				if(temp_array[j]<sorted_array[former_alloc_num/2+k]){
+					array[i]=temp_array[j];
+					j++;
+				}
+				else{
+					array[i]=sorted_array[former_alloc_num/2+k];
+					k++;
+				}
+			}			
+		}
+		/*if(rank==ROOT||rank==size-1&&!sorted){
+			if(quicksort)
+				qsort_int(array,alloc_num);
+			else
+			insertionsort(array,alloc_num);
+		}*/
+		start = MPI_Wtime();
+		if(rank!=ROOT)
+			MPI_Wait(&req, MPI_STATUS_IGNORE);
+		MPI_Allreduce(&sorted,&sorted_temp,1,MPI_INT,MPI_LAND,MPI_COMM_WORLD);
+		finish = MPI_Wtime();
+		commtime += finish - start;
+		sorted = sorted_temp;
+		count++;
+		if(count>2*N)
+			break;
+	}
 	cpufinish = MPI_Wtime();
 	cputime = cpufinish - cpustart - commtime;
 #ifdef DEBUG
