@@ -150,7 +150,7 @@ int main (int argc, char *argv[]) {
 			printf("%d\n", trend);
 #endif
 			if(trend==1||trend==0){
-				printf("sorted file\n");
+				puts("sorted file\n");
 				my_offset = 0;
 				printall(array, alloc_num);
 				start = MPI_Wtime();
@@ -160,7 +160,7 @@ int main (int argc, char *argv[]) {
 				printf("iotime   : %8.5lf\ncommtime : %8.5lf\n",iotime,commtime);			
 			}
 			else if(trend==-1){
-				printf("descending sorted file");
+				puts("descending sorted file\n");
 				root_ptr = (int*)malloc(sizeof(int)*alloc_num);
 				for(i=0;i<alloc_num;i++){
 					root_ptr[i] = array[alloc_num-i-1];

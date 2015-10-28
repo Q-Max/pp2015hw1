@@ -141,7 +141,7 @@ int main (int argc, char *argv[]) {
 				printf("iotime   : %8.5lf\ncommtime : %8.5lf\n",iotime,commtime);			
 			}
 			else if(trend==-1){
-				printf("descending sorted file");
+				printf("descending sorted file\n");
 				root_ptr = (int*)malloc(sizeof(int)*alloc_num);
 				for(i=0;i<alloc_num;i++){
 					root_ptr[i] = array[alloc_num-i-1];
