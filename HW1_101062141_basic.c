@@ -144,7 +144,7 @@ int main (int argc, char *argv[]) {
 				printf("descending sorted file");
 				root_ptr = (int*)malloc(sizeof(int)*alloc_num);
 				for(i=0;i<alloc_num;i++){
-					root_ptr[i] = array[alloc_num-i-i];
+					root_ptr[i] = array[alloc_num-i-1];
 				}
 				my_offset = 0;
 				start = MPI_Wtime();
